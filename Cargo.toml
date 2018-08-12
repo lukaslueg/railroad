@@ -1,0 +1,10 @@
+[package]
+name = "railroad"
+version = "0.1.0"
+authors = ["Lukas Lueg <lukas.lueg@gmail.com>"]
+
+[features]
+visual-debug = []
+
+[dependencies]
+htmlescape = "0.3"
