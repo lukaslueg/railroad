@@ -1,4 +1,7 @@
-A library to create syntax ("railroad") diagrams as Scalable Vector Graphics (SVG).
+### A library to create syntax ("railroad") diagrams as Scalable Vector Graphics (SVG).
+
+**[Some examples](https://htmlpreview.github.io/?https://github.com/lukaslueg/railroad_dsl/blob/master/examples/example_diagrams.html)** using a small [DSL of it's own](https://github.com/lukaslueg/railroad_dsl).
+
 
 Railroad diagrams are a way to represent context-free grammar. Every diagram has exactly one starting- and end-point; everything that belongs to the described language is represented by one of the possible paths between those points.
 
