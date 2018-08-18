@@ -74,6 +74,15 @@ fn main() {
     dia!(dbg!(20, 50, 50));
     hr!();
 
+    // Long text, difficult width
+    dia!(nonterm!("This is a very long text that should not escape it's bounding box, like ever..."));
+    dia!(term!("This is a very long text that should not escape it's bounding box, like ever..."));
+    dia!(cmt!("This is a very long text that should not escape it's bounding box, like ever..."));
+    dia!(term!("大家好"));
+    dia!(cmt!("ｆｏｏｂａｒ"));
+    dia!(lbox!(nonterm!("大家好 🤸"), cmt!("ｆｏｏｂａｒｆｏｏｂａｒｆｏｏｂａｒ")));
+    hr!();
+
     // Optional
     dia!(opt!(dbg!(0, 20, 10)));
     dia!(opt!(dbg!(25, 45, 20)));

@@ -58,6 +58,7 @@ use std::fmt;
 use std::io;
 
 extern crate htmlescape;
+extern crate unicode_width;
 
 pub mod notactuallysvg;
 pub use notactuallysvg as svg;
@@ -65,6 +66,15 @@ pub use notactuallysvg as svg;
 /// Used as a form of scale throughout geometry calculations. Smaller values result in more compact
 /// diagrams.
 const ARC_RADIUS: i64 = 12;
+
+/// Determine the width some text will have when rendered.
+///
+/// The geometry of some primitives depends on this, which is hacky in the first place.
+fn text_width(s: &str) -> usize {
+    use unicode_width::UnicodeWidthStr;
+    // Use a fudge-factor of 1.05
+    s.width() + (s.width() / 20)
+}
 
 pub const DEFAULT_CSS: &str = r#"
     svg.railroad {
@@ -539,7 +549,7 @@ impl Terminal {
 impl RailroadNode for Terminal {
     fn entry_height(&self) -> i64 { 11 }
     fn height(&self) -> i64 { self.entry_height() * 2 }
-    fn width(&self) -> i64 { self.label.len() as i64 * 8 + 20 }
+    fn width(&self) -> i64 { text_width(&self.label) as i64 * 8 + 20 }
 
     fn draw(&self, x: i64, y: i64) -> svg::Element {
         let r = svg::Element::new("rect")
@@ -584,7 +594,7 @@ impl NonTerminal {
 impl RailroadNode for NonTerminal {
     fn entry_height(&self) -> i64 { 11 }
     fn height(&self) -> i64 { self.entry_height() * 2 }
-    fn width(&self) -> i64 { self.label.len() as i64 * 8 + 20 }
+    fn width(&self) -> i64 { text_width(&self.label) as i64 * 8 + 20 }
 
     fn draw(&self, x: i64, y: i64) -> svg::Element{
         svg::Element::new("g")
@@ -1198,7 +1208,7 @@ impl RailroadNode for Comment {
     fn entry_height(&self) -> i64 { 10 }
     fn height(&self) -> i64 { 20 }
     fn width(&self) -> i64 {
-        self.text.len() as i64 * 7 + 10
+        text_width(&self.text) as i64 * 7 + 10
     }
 
     fn draw(&self, x: i64, y: i64) -> svg::Element {

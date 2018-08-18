@@ -8,3 +8,4 @@ visual-debug = []
 
 [dependencies]
 htmlescape = "0.3"
+unicode-width = "0.1"
