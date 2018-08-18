@@ -1,5 +1,6 @@
 ### A library to create syntax ("railroad") diagrams as Scalable Vector Graphics (SVG).
 
+**[Live demo](https://lukaslueg.github.io/macro_railroad_wasm_demo/)** ([code](https://github.com/lukaslueg/macro_railroad_wasm))
 **[Some examples](https://htmlpreview.github.io/?https://github.com/lukaslueg/railroad_dsl/blob/master/examples/example_diagrams.html)** using a small [DSL of it's own](https://github.com/lukaslueg/railroad_dsl).
 
 
@@ -22,6 +23,6 @@ let mut dia = Diagram::new(seq);
 dia.add_element(svg::Element::new("style")
                 .set("type", "text/css")
                 .text(DEFAULT_CSS));
-                
+
 println!("{}", dia);
-````
+```
