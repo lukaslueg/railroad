@@ -251,7 +251,7 @@ impl ::std::fmt::Display for Element {
             f.write_str(">\n")?;
         }
         if let Some(t) = &self.text {
-            f.write_str(t)?;
+            f.write_str(&htmlescape::encode_minimal(t))?;
         }
         for child in &self.children {
             write!(f, "{}", child)?;
