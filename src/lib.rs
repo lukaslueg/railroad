@@ -253,6 +253,58 @@ impl RailroadNodeCollection for Vec<Box<RailroadNode>> {
     }
 }
 
+/// Wraps another primitive, making it a clickable link to some URI.
+#[derive(Debug)]
+pub struct Link<I: RailroadNode> {
+    inner: I,
+    uri: String,
+    title: Option<String>,
+    show: bool,
+    attributes: collections::HashMap<String, String>
+}
+
+impl<I> Link<I> where I: RailroadNode {
+    pub fn new(inner: I, uri: String) -> Self {
+        let mut l = Link { inner, uri, title: None, show: true,
+                           attributes: collections::HashMap::new() };
+        l.attributes.insert("class".to_owned(), "link".to_owned());
+        l
+    }
+
+    /// Sets the optional `xlink:title`-attribute for this link
+    pub fn set_title(&mut self, title: Option<String>) {
+        self.title = title;
+    }
+
+    /// Sets the `xlink:show`-attribute to `new` if set to `true` (the default)
+    pub fn set_show(&mut self, show: bool) {
+        self.show = show;
+    }
+
+    /// Access an attribute on the main SVG-element that will be drawn.
+    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<String, String> {
+        self.attributes.entry(key)
+    }
+}
+
+impl<I: RailroadNode> RailroadNode for Link<I> {
+    fn entry_height(&self) -> i64 { self.inner.entry_height() }
+    fn height(&self) -> i64 { self.inner.height() }
+    fn width(&self) -> i64 { self.inner.width() }
+
+    fn draw(&self, x: i64, y: i64) -> svg::Element {
+        let mut a = svg::Element::new("a")
+            .debug("Link", x, y, self)
+            .set("xlink:href", self.uri.clone());
+        if let Some(title) = &self.title {
+            a = a.set("xlink:title", title);
+        }
+        a.set("xlink:show", {if self.show { "new" } else { "replace" }}.to_owned() )
+         .set_all(self.attributes.iter())
+         .add(self.inner.draw(x, y))
+    }
+}
+
 /// A vertical group of unconnected elements.
 #[derive(Debug)]
 pub struct VerticalGrid {
@@ -984,6 +1036,7 @@ impl<I, R> Repeat<I, R> where I: RailroadNode, R: RailroadNode {
         r.attributes.insert("class".to_owned(), "repeat".to_owned());
         r
     }
+
     /// Access an attribute on the main SVG-element that will be drawn.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<String, String> {
         self.attributes.entry(key)
@@ -1303,8 +1356,6 @@ impl<T: RailroadNode> RailroadNode for Diagram<T> {
             .set("xmlns", "http://www.w3.org/2000/svg")
             .set("class", "railroad")
             .set("viewBox", format!("0 0 {} {}", self.width(), self.height()));
-            //.set("width", self.width())
-            //.set("height", self.height());
         for (k, v) in &self.extra_attributes {
             e = e.set(k.clone(), v.clone());
         }

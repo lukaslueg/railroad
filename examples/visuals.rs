@@ -30,6 +30,13 @@ fn main() {
     macro_rules! cmt { ($r:expr) => { Comment::new($r.to_owned()) } }
     macro_rules! vert { ($($r: expr),*) => { VerticalGrid::new(vec![ $( Box::new($r), )+ ]) } }
     macro_rules! horiz { ($($r: expr),*) => { HorizontalGrid::new(vec![ $( Box::new($r), )+ ]) } }
+    macro_rules! lnk { ($r:expr) => {
+        {
+            let mut l = Link::new($r, "https://www.google.com".to_owned());
+            l.set_title(Some("This is clickable!".to_owned()));
+            l
+        }
+    } }
 
     macro_rules! rpt {
         ($r:expr, $s:expr) => {
@@ -144,6 +151,9 @@ fn main() {
     dia!(stck!(dbg!(15, 40, 10), dbg!(25, 30, 20)));
     dia!(stck!(dbg!(10, 15, 10), dbg!(10,15,5), seq!(dbg!(), dbg!(20,35,22)), dbg!(10, 15, 10)));
     hr!();
+
+    // Links
+    dia!(lnk!(term!("www.google.com")));
 
     dia!(seq!(opt!(term!("Foo")), nonterm!("Bar"), rpt!(nonterm!("Barfoo"), term!(","))));
     hr!();
