@@ -46,7 +46,7 @@
 //! // The library only computes the diagram's geometry; we use CSS for layout.
 //! dia.add_element(svg::Element::new("style")
 //!                 .set("type", "text/css")
-//!                 .text(DEFAULT_CSS));
+//!                 .raw_text(DEFAULT_CSS));
 //!
 //! // A `RailroadNode`'s `fmt::Display` is it's SVG.
 //! println!("<html>{}</html>", dia);
@@ -614,7 +614,7 @@ impl RailroadNode for Terminal {
         let t = svg::Element::new("text")
             .set("x", x + self.width() / 2)
             .set("y", y + self.entry_height() + 5)
-            .text(self.label.clone());
+            .text(&self.label);
         svg::Element::new("g")
             .debug("terminal", x, y, self)
             .set_all(self.attributes.iter())
@@ -660,7 +660,7 @@ impl RailroadNode for NonTerminal {
             .add(svg::Element::new("text")
                  .set("x", x + self.width() / 2)
                  .set("y", y + self.entry_height() + 5)
-                 .text(self.label.clone()))
+                 .text(&self.label))
     }
 }
 
@@ -1269,7 +1269,7 @@ impl RailroadNode for Comment {
             .set_all(self.attributes.iter())
             .set("x", x + self.width() / 2)
             .set("y", y + 15)
-            .text(self.text.clone())
+            .text(&self.text)
             .debug("Comment", x, y, self)
     }
 }
@@ -1296,7 +1296,7 @@ impl<T: RailroadNode> Diagram<T> {
     /// let mut dia = railroad::Diagram::new(seq);
     /// dia.add_element(railroad::svg::Element::new("style")
     ///                 .set("type", "text/css")
-    ///                 .text(railroad::DEFAULT_CSS));
+    ///                 .raw_text(railroad::DEFAULT_CSS));
     /// println!("{}", dia);
     /// ```
     pub fn new(root: T) -> Self {
@@ -1315,7 +1315,7 @@ impl<T: RailroadNode> Diagram<T> {
 
     /// Add the default CSS as an additional `<style>` element.
     pub fn add_default_css(&mut self) {
-        self.add_element(svg::Element::new("style").set("type", "text/css").text(DEFAULT_CSS));
+        self.add_element(svg::Element::new("style").set("type", "text/css").raw_text(DEFAULT_CSS));
     }
 
     /// Set an attribute on the <svg>-tag.

@@ -171,10 +171,18 @@ impl Element {
         self
     }
 
-    /// Set the raw text within the opening and closing tag of this Element.
+    /// Set the text within the opening and closing tag of this Element.
     ///
-    /// The text is written before any children.
-    pub fn text(mut self, text: impl Into<String>) -> Self {
+    /// The text is automatically HTML-escaped. It is written before any children.
+    pub fn text(mut self, text: &str) -> Self {
+        self.text = Some(htmlescape::encode_minimal(text));
+        self
+    }
+
+    /// Set the text within the opening and closing tag of this Element.
+    ///
+    /// The text is NOT automatically HTML-escaped.
+    pub fn raw_text(mut self, text: impl Into<String>) -> Self {
         self.text = Some(text.into());
         self
     }
@@ -251,7 +259,7 @@ impl ::std::fmt::Display for Element {
             f.write_str(">\n")?;
         }
         if let Some(t) = &self.text {
-            f.write_str(&htmlescape::encode_minimal(t))?;
+            f.write_str(t)?;
         }
         for child in &self.children {
             write!(f, "{}", child)?;
