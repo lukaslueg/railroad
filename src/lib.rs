@@ -24,12 +24,12 @@
 //!
 //! Railroad diagrams are a graphical way to represent context-free grammar.
 //! Every diagram has exactly one starting- and one end-point; everything that
-//! belongs to the language that is described by the diagram can be represented by
-//! one of the possible paths between those points.
+//! belongs to the described language is represented by one of the possible paths
+//! between those points.
 //!
-//! With this library, diagrams are created using one or more of the primitives
-//! which implemented `RailroadNode`. Primitives are combined by wrapping simple
-//! elements into more complex ones.
+//! Using this library, diagrams are created by primitives which implemented `RailroadNode`.
+//! Primitives are combined into more complex strctures by wrapping simple elements into more
+//! complex ones.
 //!
 //! ```
 //! use railroad::*;
