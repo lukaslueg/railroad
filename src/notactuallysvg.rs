@@ -2,18 +2,6 @@ use std::collections;
 use std::fmt::Write;
 use htmlescape;
 
-// TODO should this be pub at all? We should do the encoding all ourselves
-
-/// HTML entity-encode a string.
-pub fn encode(s: &str) -> String {
-    htmlescape::encode_minimal(s)
-}
-
-/// HTML entity-encodes a string for use in attributes values.
-pub fn encode_attribute(s: &str) -> String {
-    htmlescape::encode_attribute(s)
-}
-
 /// A shorthand to draw rounded corners, see `PathData::arc`.
 #[derive(Clone, Copy)]
 pub enum Arc {
