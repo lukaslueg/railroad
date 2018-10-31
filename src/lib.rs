@@ -48,7 +48,7 @@
 //!                 .set("type", "text/css")
 //!                 .raw_text(DEFAULT_CSS));
 //!
-//! // A `RailroadNode`'s `fmt::Display` is it's SVG.
+//! // A `RailroadNode`'s `fmt::Display` is its SVG.
 //! println!("<html>{}</html>", dia);
 //! ```
 //!
@@ -62,6 +62,8 @@ extern crate unicode_width;
 
 pub mod notactuallysvg;
 pub use notactuallysvg as svg;
+
+use svg::HDir;
 
 /// Used as a form of scale throughout geometry calculations. Smaller values result in more compact
 /// diagrams.
@@ -160,15 +162,15 @@ pub trait RailroadNode : ::std::fmt::Debug {
     }
 
     /// Draw this element as an `svg::Element`.
-    fn draw(&self, x: i64, y: i64) -> svg::Element;
+    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element;
 }
 
 impl<T> RailroadNode for Box<T> where T: RailroadNode + ?Sized {
     fn entry_height(&self) -> i64 { (**self).entry_height() }
     fn width(&self) -> i64 { (**self).width() }
     fn height(&self) -> i64 { (**self).height() }
-    fn draw(&self, x: i64, y: i64) -> svg::Element {
-        (**self).draw(x,y)
+    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
+        (**self).draw(x, y, h_dir)
     }
 }
 
@@ -176,8 +178,8 @@ impl<'a, T> RailroadNode for &'a Box<T> where T: RailroadNode + 'a + ?Sized {
     fn entry_height(&self) -> i64 { (**self).entry_height() }
     fn width(&self) -> i64 { (**self).width() }
     fn height(&self) -> i64 { (**self).height() }
-    fn draw(&self, x: i64, y: i64) -> svg::Element {
-        (**self).draw(x,y)
+    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
+        (**self).draw(x, y, h_dir)
     }
 }
 
@@ -198,9 +200,9 @@ impl<T> RailroadNode for Option<T> where T: RailroadNode {
         self.as_ref().map(|c| c.width()).unwrap_or_default()
     }
 
-    fn draw(&self, x: i64, y: i64) -> svg::Element {
+    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
         match self {
-            Some(c) => c.draw(x, y),
+            Some(c) => c.draw(x, y, h_dir),
             None => unimplemented!()
         }
     }
@@ -292,7 +294,7 @@ impl<I: RailroadNode> RailroadNode for Link<I> {
     fn height(&self) -> i64 { self.inner.height() }
     fn width(&self) -> i64 { self.inner.width() }
 
-    fn draw(&self, x: i64, y: i64) -> svg::Element {
+    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
         let mut a = svg::Element::new("a")
             .debug("Link", x, y, self)
             .set("xlink:href", self.uri.clone());
@@ -301,7 +303,7 @@ impl<I: RailroadNode> RailroadNode for Link<I> {
         }
         a.set("xlink:show", {if self.show { "new" } else { "replace" }}.to_owned() )
          .set_all(self.attributes.iter())
-         .add(self.inner.draw(x, y))
+         .add(self.inner.draw(x, y, h_dir))
     }
 }
 
@@ -350,12 +352,12 @@ impl RailroadNode for VerticalGrid {
         self.children.max_width()
     }
 
-    fn draw(&self, x: i64, y: i64) -> svg::Element {
+    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
         let mut g = svg::Element::new("g")
             .set_all(self.attributes.iter());
         let mut running_y = y;
         for child in &self.children {
-            g.push(child.draw(x, running_y));
+            g.push(child.draw(x, running_y, h_dir));
             running_y += child.height() + self.spacing;
         }
         g.debug("VerticalGrid", x, y, self)
@@ -407,12 +409,12 @@ impl RailroadNode for HorizontalGrid {
             + ((cmp::max(1, self.children.len() as i64) - 1) * self.spacing)
     }
 
-    fn draw(&self, x: i64, y: i64) -> svg::Element {
+    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
         let mut g = svg::Element::new("g")
             .set_all(self.attributes.iter());
         let mut running_x = x;
         for child in &self.children {
-            g.push(child.draw(running_x, y));
+            g.push(child.draw(running_x, y, h_dir));
             running_x += child.width() + self.spacing;
         }
         g.debug("HorizontalGrid", x, y, self)
@@ -467,16 +469,16 @@ impl RailroadNode for Sequence {
         }
     }
 
-    fn draw(&self, x: i64, y: i64) -> svg::Element {
+    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
         let mut g = svg::Element::new("g")
             .set("class", "sequence");
         for (child, offset) in self.children.running_x(self.spacing) {
-            g.push(child.draw(x + offset, y + self.entry_height() - child.entry_height()));
+            g.push(child.draw(x + offset, y + self.entry_height() - child.entry_height(), h_dir));
         }
 
         let mut running_x = x;
         for child in self.children.iter().rev().skip(1).rev() {
-            g.push(svg::PathData::new()
+            g.push(svg::PathData::new(h_dir)
                    .move_to(running_x + child.width(), y + self.exit_height())
                    .horizontal(self.spacing)
                    .into_path());
@@ -495,8 +497,8 @@ impl RailroadNode for End {
     fn height(&self) -> i64 { 20 }
     fn width(&self) -> i64 { 20 }
 
-    fn draw(&self, x: i64, y: i64) -> svg::Element {
-        svg::PathData::new()
+    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
+        svg::PathData::new(h_dir)
             .move_to(x, y + 10)
             .horizontal(20)
             .move_rel(-10, -10)
@@ -518,8 +520,8 @@ impl RailroadNode for SimpleStart {
     fn height(&self) -> i64 { 10 }
     fn width(&self) -> i64 { 15 }
 
-    fn draw(&self, x: i64, y: i64) -> svg::Element {
-        svg::PathData::new()
+    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
+        svg::PathData::new(h_dir)
             .move_to(x, y+5)
             .arc(5, svg::Arc::SouthToEast)
             .arc(5, svg::Arc::WestToSouth)
@@ -541,8 +543,8 @@ impl RailroadNode for SimpleEnd {
     fn height(&self) -> i64 { 10 }
     fn width(&self) -> i64 { 15 }
 
-    fn draw(&self, x: i64, y: i64) -> svg::Element {
-        svg::PathData::new()
+    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
+        svg::PathData::new(h_dir)
             .move_to(x, y+5)
             .horizontal(5)
             .arc(5, svg::Arc::SouthToEast)
@@ -564,8 +566,8 @@ impl RailroadNode for Start {
     fn height(&self) -> i64 { 20 }
     fn width(&self) -> i64 { 20 }
 
-    fn draw(&self, x: i64, y: i64) -> svg::Element {
-        svg::PathData::new()
+    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
+        svg::PathData::new(h_dir)
             .move_to(x, y)
             .vertical(20)
             .move_rel(10, -20)
@@ -603,7 +605,7 @@ impl RailroadNode for Terminal {
     fn height(&self) -> i64 { self.entry_height() * 2 }
     fn width(&self) -> i64 { text_width(&self.label) as i64 * 8 + 20 }
 
-    fn draw(&self, x: i64, y: i64) -> svg::Element {
+    fn draw(&self, x: i64, y: i64, _: HDir) -> svg::Element {
         let r = svg::Element::new("rect")
             .set("x", x)
             .set("y", y)
@@ -648,7 +650,7 @@ impl RailroadNode for NonTerminal {
     fn height(&self) -> i64 { self.entry_height() * 2 }
     fn width(&self) -> i64 { text_width(&self.label) as i64 * 8 + 20 }
 
-    fn draw(&self, x: i64, y: i64) -> svg::Element{
+    fn draw(&self, x: i64, y: i64, _: HDir) -> svg::Element{
         svg::Element::new("g")
             .debug("NonTerminal", x, y, self)
             .set_all(self.attributes.iter())
@@ -710,10 +712,11 @@ impl<T: RailroadNode> RailroadNode for Optional<T> {
         ARC_RADIUS*2 + self.inner.width() + ARC_RADIUS*2
     }
 
-    fn draw(&self, x: i64, y: i64) -> svg::Element {
-        let i = self.inner.draw(x + ARC_RADIUS * 2, y + self.entry_height() - self.inner.entry_height());
+    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
+        let i = self.inner.draw(x + ARC_RADIUS * 2,
+                                y + self.entry_height() - self.inner.entry_height(), h_dir);
 
-        let v = svg::PathData::new()
+        let v = svg::PathData::new(h_dir)
             .move_to(x, y + self.entry_height())
             .horizontal(ARC_RADIUS * 2)
             .move_rel(-ARC_RADIUS * 2, 0)
@@ -818,10 +821,10 @@ impl RailroadNode for Stack {
         }
     }
 
-    fn draw(&self, x: i64, y: i64) -> svg::Element {
+    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
         let mut g = svg::Element::new("g")
             .set_all(self.attributes.iter())
-            .add(svg::PathData::new()
+            .add(svg::PathData::new(h_dir)
                  .move_to(x, y + self.entry_height())
                  .horizontal(self.left_padding())
                  .into_path());
@@ -829,7 +832,7 @@ impl RailroadNode for Stack {
         // Draw all the children but the last
         let mut running_y = y;
         for (child, next_child) in self.children.iter().zip(self.children.iter().skip(1)) {
-            g.push(svg::PathData::new()
+            g.push(svg::PathData::new(h_dir)
                    .move_to(x + self.left_padding() + child.width(),
                             running_y + child.exit_height())
                    .arc(ARC_RADIUS, svg::Arc::WestToSouth)
@@ -842,14 +845,14 @@ impl RailroadNode for Stack {
                    .arc(ARC_RADIUS, svg::Arc::NorthToEast)
                    .horizontal(self.left_padding() - ARC_RADIUS)
                    .into_path());
-            g.push(child.draw(x + self.left_padding(), running_y));
+            g.push(child.draw(x + self.left_padding(), running_y, h_dir));
             running_y += self.padded_height(&child, &next_child);
         }
 
-        // Draw the last (possibly only) child and it's connectors
+        // Draw the last (possibly only) child and its connectors
         if let Some(child) = self.children.last() {
             if self.children.len() > 1 {
-                g.push(svg::PathData::new()
+                g.push(svg::PathData::new(h_dir)
                     .move_to(x + self.left_padding() + child.width(),
                                 running_y + child.exit_height())
                     .horizontal(self.width() - child.width() - self.left_padding() - ARC_RADIUS*2)
@@ -858,7 +861,7 @@ impl RailroadNode for Stack {
                     .arc(ARC_RADIUS, svg::Arc::SouthToEast)
                     .into_path());
             }
-            g.push(child.draw(x + self.left_padding(), running_y));
+            g.push(child.draw(x + self.left_padding(), running_y, h_dir));
         }
 
         g.debug("Stack", x, y, self)
@@ -949,12 +952,12 @@ impl RailroadNode for Choice {
         }
     }
 
-    fn draw(&self, x: i64, y: i64) -> svg::Element {
+    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
         let mut g = svg::Element::new("g")
             .set_all(self.attributes.iter());
 
         // The top, horizontal connectors
-        g.push(svg::PathData::new()
+        g.push(svg::PathData::new(h_dir)
             .move_to(x, y + self.entry_height())
             .horizontal(self.inner_padding())
             .move_rel(self.children.get(0).width(), 0)
@@ -963,13 +966,13 @@ impl RailroadNode for Choice {
 
         // The first child is simply drawn in-line
         if let Some(child) = self.children.get(0) {
-            g.push(child.draw(x + self.inner_padding(), y));
+            g.push(child.draw(x + self.inner_padding(), y, h_dir));
         }
 
         // If there are more children, we draw all kinds of things
         if self.children.len() > 1 {
             // The downward arcs
-            g.push(svg::PathData::new()
+            g.push(svg::PathData::new(h_dir)
                    .move_to(x, y + self.entry_height())
                    .arc(ARC_RADIUS, svg::Arc::WestToSouth)
                    .vertical(cmp::max(0, self.children[0].height_below_entry() + self.spacing - ARC_RADIUS))
@@ -987,7 +990,7 @@ impl RailroadNode for Choice {
                 let z = self.padded_height(&child);
                 let zz = cmp::max(0, child.entry_height() - ARC_RADIUS);
                 let z = z - zz;
-                g.push(svg::PathData::new()
+                g.push(svg::PathData::new(h_dir)
                        .move_to(x + ARC_RADIUS, running_y + zz)
                        .vertical(z)
                        .move_rel(self.width() - ARC_RADIUS*2, 0)
@@ -1001,7 +1004,7 @@ impl RailroadNode for Choice {
                                 + cmp::max(ARC_RADIUS,
                                            self.spacing + self.children[0].height_below_entry());
             for child in self.children.iter().skip(1) {
-                g.push(svg::PathData::new()
+                g.push(svg::PathData::new(h_dir)
                        .move_to(x + ARC_RADIUS, running_y)
                        .vertical(cmp::max(0, child.entry_height() - ARC_RADIUS))
                        .arc(ARC_RADIUS, svg::Arc::NorthToEast)
@@ -1011,7 +1014,8 @@ impl RailroadNode for Choice {
                        .vertical(-cmp::max(0, child.entry_height() - ARC_RADIUS))
                        .into_path());
                 g.push(child.draw(x + ARC_RADIUS*2,
-                                  running_y + cmp::max(0, ARC_RADIUS - child.entry_height())));
+                                  running_y + cmp::max(0, ARC_RADIUS - child.entry_height()),
+                                  h_dir));
                 running_y += self.padded_height(&child);
             }
         }
@@ -1063,11 +1067,11 @@ impl<I, R> RailroadNode for Repeat<I, R> where I: RailroadNode, R: RailroadNode 
         ARC_RADIUS + cmp::max(self.repeat.width(), self.inner.width()) + ARC_RADIUS
     }
 
-    fn draw(&self, x: i64, y: i64) -> svg::Element {
+    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
         let mut g = svg::Element::new("g")
             .set_all(self.attributes.iter());
 
-        g.push(svg::PathData::new()
+        g.push(svg::PathData::new(h_dir)
                .move_to(x, y + self.entry_height())
                .horizontal(ARC_RADIUS)
                .move_rel(self.inner.width(), 0)
@@ -1087,8 +1091,9 @@ impl<I, R> RailroadNode for Repeat<I, R> where I: RailroadNode, R: RailroadNode 
                                      - ARC_RADIUS,
                                    y + self.height()
                                      - self.repeat.height_below_entry()
-                                     - self.repeat.entry_height()));
-        g.push(self.inner.draw(x + ARC_RADIUS, y));
+                                     - self.repeat.entry_height(),
+                                   h_dir.invert()));
+        g.push(self.inner.draw(x + ARC_RADIUS, y, h_dir));
         g.debug("Repeat", x, y, self)
     }
 }
@@ -1121,7 +1126,7 @@ impl RailroadNode for Debug {
     fn height(&self) -> i64 { self.height }
     fn width(&self) -> i64 { self.width }
 
-    fn draw(&self, x: i64, y: i64) -> svg::Element {
+    fn draw(&self, x: i64, y: i64, _: HDir) -> svg::Element {
         svg::Element::new("rect")
             .set("x", x)
             .set("y", y)
@@ -1146,7 +1151,7 @@ impl RailroadNode for Empty {
     fn height(&self) -> i64 { 0 }
     fn width(&self) -> i64 { 0 }
 
-    fn draw(&self, x: i64, y: i64) -> svg::Element {
+    fn draw(&self, x: i64, y: i64, _: HDir) -> svg::Element {
         svg::Element::new("g")
             .debug("Empty", x, y, self)
     }
@@ -1214,23 +1219,23 @@ impl<T: RailroadNode, U: RailroadNode> RailroadNode for LabeledBox<T, U> {
         self.padding() + cmp::max(self.inner.width(), self.label.width()) + self.padding()
     }
 
-    fn draw(&self, x: i64, y: i64) -> svg::Element {
+    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
         svg::Element::new("g")
             .add(svg::Element::new("rect")
                  .set("x", x)
                  .set("y", y)
                  .set("height", self.height())
                  .set("width", self.width()))
-            .add(svg::PathData::new()
+            .add(svg::PathData::new(h_dir)
                  .move_to(x, y + self.entry_height())
                  .horizontal(self.padding())
                  .move_rel(self.inner.width(), 0)
                  .horizontal(self.width() - self.inner.width() - self.padding())
                  .into_path())
             .add(self.label.draw(x + self.padding(),
-                                 y + self.padding()))
+                                 y + self.padding(), h_dir))
             .add(self.inner.draw(x + self.padding(),
-                                 y + self.padding() + self.label.height() + self.spacing()))
+                                 y + self.padding() + self.label.height() + self.spacing(), h_dir))
             .set_all(self.attributes.iter())
             .debug("LabeledBox", x, y, self)
     }
@@ -1264,7 +1269,7 @@ impl RailroadNode for Comment {
         text_width(&self.text) as i64 * 7 + 10
     }
 
-    fn draw(&self, x: i64, y: i64) -> svg::Element {
+    fn draw(&self, x: i64, y: i64, _: HDir) -> svg::Element {
         svg::Element::new("text")
             .set_all(self.attributes.iter())
             .set("x", x + self.width() / 2)
@@ -1331,7 +1336,7 @@ impl<T: RailroadNode> Diagram<T> {
     }
 
     pub fn write(&self, writer: &mut impl io::Write) -> io::Result<()> {
-        write!(writer, "{}", self.draw(0, 0))
+        write!(writer, "{}", self.draw(0, 0, HDir::LTR))
     }
 
     /// Return the root-element this diagram's root element
@@ -1351,7 +1356,7 @@ impl<T: RailroadNode> RailroadNode for Diagram<T> {
         self.left_padding + self.root.width() + self.right_padding
     }
 
-    fn draw(&self, x: i64, y: i64) -> svg::Element {
+    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
         let mut e = svg::Element::new("svg")
             .set("xmlns", "http://www.w3.org/2000/svg")
             .set("class", "railroad")
@@ -1362,12 +1367,12 @@ impl<T: RailroadNode> RailroadNode for Diagram<T> {
         for extra_ele in self.extra_elements.iter().cloned() {
             e = e.add(extra_ele);
         }
-        e.add(self.root.draw(x + self.left_padding, y + self.top_padding))
+        e.add(self.root.draw(x + self.left_padding, y + self.top_padding, h_dir))
     }
 }
 
 impl<T: RailroadNode> fmt::Display for Diagram<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        write!(f, "{}", self.draw(0, 0))
+        write!(f, "{}", self.draw(0, 0, HDir::LTR))
     }
 }
