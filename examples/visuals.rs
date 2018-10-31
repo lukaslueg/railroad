@@ -140,6 +140,7 @@ fn main() {
     dia!(rpt!(dbg!(5, 15, 10), dbg!(5, 15, 20)));
     dia!(rpt!(nonterm!("Foo"), term!(",")));
     dia!(rpt!(cmt!("<-- this is longer -->"), cmt!("this is shorter")));
+    dia!(rpt!(nonterm!("Foo"), lbox!(term!(","), cmt!("A comment that runs long"))));
     dia!(rpt!(cmt!("this is shorter"), cmt!("<-- this is longer -->")));
     hr!();
 
