@@ -14,7 +14,7 @@ pub fn encode_attribute(s: &str) -> String {
     htmlescape::encode_attribute(s)
 }
 
-/// A shorthand to draw rounded corners, see `PathData::arc`
+/// A shorthand to draw rounded corners, see `PathData::arc`.
 #[derive(Clone, Copy)]
 pub enum Arc {
     EastToNorth,
@@ -27,15 +27,34 @@ pub enum Arc {
     WestToSouth,
 }
 
+/// Selects the direction in which arrows on positive direction horizontal
+/// lines point.
+#[derive(Clone, Copy, PartialEq)]
+pub enum HDir {
+    LTR,
+    RTL,
+}
+
+impl HDir {
+    /// Invert the direction.
+    pub fn invert(self) -> Self {
+        match self {
+            HDir::LTR => HDir::RTL,
+            HDir::RTL => HDir::LTR,
+        }
+    }
+}
+
 /// A builder-struct for SVG-Paths
 pub struct PathData {
-    text: String
+    text: String,
+    h_dir: HDir,
 }
 
 impl PathData {
     /// Construct a empty `PathData`
-    pub fn new() -> Self {
-        PathData { text: String::new() }
+    pub fn new(h_dir: HDir) -> Self {
+        PathData { text: String::new(), h_dir }
     }
 
     /// Convert to a `Element` of type `path` and fill it's data-attribute
@@ -65,26 +84,36 @@ impl PathData {
     /// Draw a horizontal section from the cursor's current position
     pub fn horizontal(mut self, h: i64) -> Self {
         write!(self.text, " h {}", h).unwrap();
-        if h > 50 {
-            self.move_rel(-(h / 2 - 3), 0)
-                .line_rel(-5, -5)
-                .move_rel(0, 10)
-                .line_rel(5, -5)
-                .move_rel(h / 2 - 3, 0)
-        } else if h < -50 {
-            self.move_rel(-(h / 2 - 3), 0)
-                .line_rel(5, -5)
-                .move_rel(0, 10)
-                .line_rel(-5, -5)
-                .move_rel(h / 2 - 3, 0)
-        } else {
-            self
+        // Add an arrow for long stretches
+        match (h > 50, h < -50, self.h_dir) {
+            (true, _, HDir::LTR) => self.move_rel(-(h / 2 - 3), 0)
+                                        .line_rel(-5, -5)
+                                        .move_rel(0, 10)
+                                        .line_rel(5, -5)
+                                        .move_rel(h / 2 - 3, 0),
+            (true, _, HDir::RTL) => self.move_rel(-(h / 2 + 3), 0)
+                                        .line_rel(5, -5)
+                                        .move_rel(0, 10)
+                                        .line_rel(-5, -5)
+                                        .move_rel(h / 2 + 3, 0),
+            (_, true, HDir::LTR) => self.move_rel(-(h / 2 - 3), 0)
+                                        .line_rel(5, -5)
+                                        .move_rel(0, 10)
+                                        .line_rel(-5, -5)
+                                        .move_rel(h / 2 - 3, 0),
+            (_, true, HDir::RTL) => self.move_rel(-(h / 2 + 3), 0)
+                                        .line_rel(-5, -5)
+                                        .move_rel(0, 10)
+                                        .line_rel(5, -5)
+                                        .move_rel(h / 2 + 3, 0),
+            (false, false, _) => self
         }
     }
 
     /// Draw a vertical section from the cursor's current position
     pub fn vertical(mut self, h: i64) -> Self {
         write!(self.text, " v {}", h).unwrap();
+        // Add an arrow for long stretches
         if h > 50 {
             self.move_rel(0, -(h / 2 - 3))
                 .line_rel(-5, -5)
@@ -133,7 +162,7 @@ impl ::std::fmt::Display for PathData {
 ///         .add(svg::Element::new("rect")
 ///                 .set("class", "important")
 ///                 .set("x", 15))
-///         .add(svg::PathData::new()
+///         .add(svg::PathData::new(svg::HDir::LTR)
 ///                  .move_to(5, 5)
 ///                  .line_rel(10, 20)
 ///                  .into_path());
@@ -231,7 +260,7 @@ impl Element {
             .add(Element::new("title")
                         .text(name))
             .append(Element::new("path")
-                    .set("d", PathData::new()
+                    .set("d", PathData::new(HDir::LTR)
                             .move_to(x, y)
                             .horizontal(n.width())
                             .vertical(5)
