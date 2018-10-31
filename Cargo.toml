@@ -14,3 +14,7 @@ visual-debug = []
 [dependencies]
 htmlescape = "0.3"
 unicode-width = "0.1"
+
+[dev-dependencies]
+lazy_static = "1.1"
+railroad_verification = { git = "https://github.com/lukaslueg/railroad_verification" }
