@@ -31,4 +31,7 @@ dia.add_element(svg::Element::new("style")
 
 println!("{}", dia);
 ```
+
+![diagram for constraint syntax](https://raw.githubusercontent.com/lukaslueg/railroad/master/examples/column_constraint.jpeg)
+
 When adding new `RailroadNode`-primitives to this library, you may find `examples/visual.rs` come in handy to quickly generate special-cases and check if they render properly. Use the `visual-debug` feature to add guide-lines to the rendered diagram and extra information to the SVG's code.
