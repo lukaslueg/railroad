@@ -7,6 +7,7 @@ description = "A library to create syntax-diagrams as Scalable Vector Graphics"
 repository = "https://github.com/lukaslueg/railroad"
 documentation = "https://docs.rs/railroad"
 readme = "README.md"
+exclude = ["examples/*.jpeg"]
 
 [features]
 visual-debug = []
