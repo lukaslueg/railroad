@@ -255,32 +255,33 @@ impl RailroadNodeCollection for Vec<Box<RailroadNode>> {
     }
 }
 
+#[derive(Debug)]
+pub enum LinkTarget {
+    Blank,
+    Parent,
+    Top
+}
+
 /// Wraps another primitive, making it a clickable link to some URI.
 #[derive(Debug)]
 pub struct Link<I: RailroadNode> {
     inner: I,
     uri: String,
-    title: Option<String>,
-    show: bool,
+    target: Option<LinkTarget>,
     attributes: collections::HashMap<String, String>
 }
 
 impl<I> Link<I> where I: RailroadNode {
     pub fn new(inner: I, uri: String) -> Self {
-        let mut l = Link { inner, uri, title: None, show: true,
+        let mut l = Link { inner, uri, target: None,
                            attributes: collections::HashMap::new() };
         l.attributes.insert("class".to_owned(), "link".to_owned());
         l
     }
 
-    /// Sets the optional `xlink:title`-attribute for this link
-    pub fn set_title(&mut self, title: Option<String>) {
-        self.title = title;
-    }
-
-    /// Sets the `xlink:show`-attribute to `new` if set to `true` (the default)
-    pub fn set_show(&mut self, show: bool) {
-        self.show = show;
+    /// Set the target-attribute
+    pub fn set_target(&mut self, target: Option<LinkTarget>) {
+        self.target = target;
     }
 
     /// Access an attribute on the main SVG-element that will be drawn.
@@ -298,11 +299,13 @@ impl<I: RailroadNode> RailroadNode for Link<I> {
         let mut a = svg::Element::new("a")
             .debug("Link", x, y, self)
             .set("xlink:href", self.uri.clone());
-        if let Some(title) = &self.title {
-            a = a.set("xlink:title", title);
-        }
-        a.set("xlink:show", {if self.show { "new" } else { "replace" }}.to_owned() )
-         .set_all(self.attributes.iter())
+        a = match self.target {
+            Some(LinkTarget::Blank) => a.set("target", "_blank"),
+            Some(LinkTarget::Parent) => a.set("target", "_parent"),
+            Some(LinkTarget::Top) => a.set("target", "_top"),
+            None => a
+        };
+        a.set_all(self.attributes.iter())
          .add(self.inner.draw(x, y, h_dir))
     }
 }
@@ -1359,6 +1362,7 @@ impl<T: RailroadNode> RailroadNode for Diagram<T> {
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
         let mut e = svg::Element::new("svg")
             .set("xmlns", "http://www.w3.org/2000/svg")
+            .set("xmlns:xlink", "http://www.w3.org/1999/xlink")
             .set("class", "railroad")
             .set("viewBox", format!("0 0 {} {}", self.width(), self.height()));
         for (k, v) in &self.extra_attributes {

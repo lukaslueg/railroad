@@ -30,14 +30,7 @@ fn main() {
     macro_rules! cmt { ($r:expr) => { Comment::new($r.to_owned()) } }
     macro_rules! vert { ($($r: expr),*) => { VerticalGrid::new(vec![ $( Box::new($r), )+ ]) } }
     macro_rules! horiz { ($($r: expr),*) => { HorizontalGrid::new(vec![ $( Box::new($r), )+ ]) } }
-    macro_rules! lnk { ($r:expr) => {
-        {
-            let mut l = Link::new($r, "https://www.google.com".to_owned());
-            l.set_title(Some("This is clickable!".to_owned()));
-            l
-        }
-    } }
-
+    macro_rules! lnk { ($r:expr) => { Link::new($r, "https://www.rust-lang.org".to_owned()) } }
     macro_rules! rpt {
         ($r:expr, $s:expr) => {
             Repeat::new($r, $s)
@@ -154,9 +147,9 @@ fn main() {
     hr!();
 
     // Links
-    dia!(lnk!(term!("www.google.com")));
+    dia!(lnk!(term!("www.rust-lang.org")));
+    dia!( { let mut l = lnk!(term!("www.rust-lang.org")); l.set_target(Some(LinkTarget::Blank)); l });
 
-    dia!(seq!(opt!(term!("Foo")), nonterm!("Bar"), rpt!(nonterm!("Barfoo"), term!(","))));
     hr!();
 
     dia!(choice!(

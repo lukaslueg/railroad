@@ -55,6 +55,7 @@ macro_rules! lbox {
         LabeledBox::new($r, Empty)
     }
 }
+macro_rules! lnk { ($r:expr) => { Link::new($r, "https://www.google.com".to_owned()) } }
 
 verify!(simple_nonterm, dia!(nonterm!("Foobar")));
 verify!(escape_nonterm, dia!(nonterm!("Foo<bar>")));
@@ -69,3 +70,5 @@ verify!(simple_horizontal, dia!(horiz!(term!("Foo"), term!("Bar"))));
 verify!(simple_repeat, dia!(rpt!(term!("Foo"))));
 verify!(simple_opt, dia!(opt!(term!("Foo"))));
 verify!(simple_lbox, dia!(lbox!(term!("Foo"))));
+verify!(simple_link, dia!(lnk!(term!("Foo"))));
+verify!(blank_link, dia!( { let mut l = lnk!(term!("Foo")); l.set_target(Some(LinkTarget::Blank)); l }));
