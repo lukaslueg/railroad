@@ -61,9 +61,8 @@ extern crate htmlescape;
 extern crate unicode_width;
 
 pub mod notactuallysvg;
-pub use notactuallysvg as svg;
-
-use svg::HDir;
+pub use crate::notactuallysvg as svg;
+use crate::svg::HDir;
 
 /// Used as a form of scale throughout geometry calculations. Smaller values result in more compact
 /// diagrams.
@@ -215,7 +214,7 @@ trait RailroadNodeCollection {
     fn max_width(&self) -> i64;
     fn total_width(&self) -> i64;
     fn total_height(&self) -> i64;
-    fn running_x<'a>(&'a self, i64) -> Box<Iterator<Item=(&'a Box<RailroadNode>, i64)> + 'a>;
+    fn running_x<'a>(&'a self, spacing: i64) -> Box<Iterator<Item=(&'a Box<RailroadNode>, i64)> + 'a>;
 }
 
 
