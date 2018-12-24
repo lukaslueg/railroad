@@ -7,15 +7,14 @@
 
 #[macro_use]
 extern crate lazy_static;
-extern crate railroad_verification;
 extern crate railroad;
+extern crate railroad_verification;
 
 use railroad::*;
 
 lazy_static! {
-    static ref VERIFIER: railroad_verification::Verifier = {
-        railroad_verification::Verifier::new().unwrap()
-    };
+    static ref VERIFIER: railroad_verification::Verifier =
+        { railroad_verification::Verifier::new().unwrap() };
 }
 
 macro_rules! verify {
@@ -25,17 +24,37 @@ macro_rules! verify {
         fn $testname() {
             VERIFIER.verify($src).unwrap();
         }
-    }
+    };
 }
 
-macro_rules! raw_dia { ($r:expr) => { Diagram::with_default_css($r).to_string() }; }
-macro_rules! dia { ($r:expr) => { raw_dia!(seq!(SimpleStart, $r, SimpleEnd)); }; }
-macro_rules! nonterm { ($r:expr) => { NonTerminal::new($r.to_owned()) } }
-macro_rules! term { ($r:expr) => { Terminal::new($r.to_owned()) } }
+macro_rules! raw_dia {
+    ($r:expr) => {
+        Diagram::with_default_css($r).to_string()
+    };
+}
+macro_rules! dia {
+    ($r:expr) => {
+        raw_dia!(seq!(SimpleStart, $r, SimpleEnd));
+    };
+}
+macro_rules! nonterm {
+    ($r:expr) => {
+        NonTerminal::new($r.to_owned())
+    };
+}
+macro_rules! term {
+    ($r:expr) => {
+        Terminal::new($r.to_owned())
+    };
+}
 macro_rules! seq { ($($r: expr),*) => { Sequence::new(vec![ $( Box::new($r), )+ ]) } }
 macro_rules! choice { ($($r: expr),*) => { Choice::new(vec![ $( Box::new($r), )* ]) } }
 macro_rules! stck { ($($r: expr),*) => { Stack::new(vec![ $( Box::new($r), )* ]) } }
-macro_rules! cmt { ($r:expr) => { Comment::new($r.to_owned()) } }
+macro_rules! cmt {
+    ($r:expr) => {
+        Comment::new($r.to_owned())
+    };
+}
 macro_rules! vert { ($($r: expr),*) => { VerticalGrid::new(vec![ $( Box::new($r), )+ ]) } }
 macro_rules! horiz { ($($r: expr),*) => { HorizontalGrid::new(vec![ $( Box::new($r), )+ ]) } }
 macro_rules! rpt {
@@ -44,18 +63,26 @@ macro_rules! rpt {
     };
     ($r:expr) => {
         rpt!($r, Empty)
-    }
+    };
 }
-macro_rules! opt { ($r:expr) => { Optional::new($r) } }
+macro_rules! opt {
+    ($r:expr) => {
+        Optional::new($r)
+    };
+}
 macro_rules! lbox {
     ($r:expr, $u:expr) => {
         LabeledBox::new($r, $u)
     };
     ($r:expr) => {
         LabeledBox::new($r, Empty)
-    }
+    };
 }
-macro_rules! lnk { ($r:expr) => { Link::new($r, "https://www.google.com".to_owned()) } }
+macro_rules! lnk {
+    ($r:expr) => {
+        Link::new($r, "https://www.google.com".to_owned())
+    };
+}
 
 verify!(simple_nonterm, dia!(nonterm!("Foobar")));
 verify!(escape_nonterm, dia!(nonterm!("Foo<bar>")));
@@ -71,4 +98,11 @@ verify!(simple_repeat, dia!(rpt!(term!("Foo"))));
 verify!(simple_opt, dia!(opt!(term!("Foo"))));
 verify!(simple_lbox, dia!(lbox!(term!("Foo"))));
 verify!(simple_link, dia!(lnk!(term!("Foo"))));
-verify!(blank_link, dia!( { let mut l = lnk!(term!("Foo")); l.set_target(Some(LinkTarget::Blank)); l }));
+verify!(
+    blank_link,
+    dia!({
+        let mut l = lnk!(term!("Foo"));
+        l.set_target(Some(LinkTarget::Blank));
+        l
+    })
+);

@@ -3,7 +3,10 @@ rust:
   - stable
   - beta
   - nightly
+before_script:
+  - rustup component add rustfmt
 script:
+  - cargo fmt --all -- --check
   - cargo test --verbose
   - cargo test --verbose -- --ignored
   - cargo test --verbose --features visual-debug -- --ignored

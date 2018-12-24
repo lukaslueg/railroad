@@ -1,6 +1,6 @@
+use htmlescape;
 use std::collections;
 use std::fmt::Write;
-use htmlescape;
 
 /// A shorthand to draw rounded corners, see `PathData::arc`.
 #[derive(Clone, Copy)]
@@ -42,13 +42,15 @@ pub struct PathData {
 impl PathData {
     /// Construct a empty `PathData`
     pub fn new(h_dir: HDir) -> Self {
-        PathData { text: String::new(), h_dir }
+        PathData {
+            text: String::new(),
+            h_dir,
+        }
     }
 
     /// Convert to a `Element` of type `path` and fill it's data-attribute
     pub fn into_path(self) -> Element {
-        Element::new("path")
-            .set("d", self)
+        Element::new("path").set("d", self)
     }
 
     /// Move the cursor to this absolute position without drawing anything
@@ -74,27 +76,31 @@ impl PathData {
         write!(self.text, " h {}", h).unwrap();
         // Add an arrow for long stretches
         match (h > 50, h < -50, self.h_dir) {
-            (true, _, HDir::LTR) => self.move_rel(-(h / 2 - 3), 0)
-                                        .line_rel(-5, -5)
-                                        .move_rel(0, 10)
-                                        .line_rel(5, -5)
-                                        .move_rel(h / 2 - 3, 0),
-            (true, _, HDir::RTL) => self.move_rel(-(h / 2 + 3), 0)
-                                        .line_rel(5, -5)
-                                        .move_rel(0, 10)
-                                        .line_rel(-5, -5)
-                                        .move_rel(h / 2 + 3, 0),
-            (_, true, HDir::LTR) => self.move_rel(-(h / 2 - 3), 0)
-                                        .line_rel(5, -5)
-                                        .move_rel(0, 10)
-                                        .line_rel(-5, -5)
-                                        .move_rel(h / 2 - 3, 0),
-            (_, true, HDir::RTL) => self.move_rel(-(h / 2 + 3), 0)
-                                        .line_rel(-5, -5)
-                                        .move_rel(0, 10)
-                                        .line_rel(5, -5)
-                                        .move_rel(h / 2 + 3, 0),
-            (false, false, _) => self
+            (true, _, HDir::LTR) => self
+                .move_rel(-(h / 2 - 3), 0)
+                .line_rel(-5, -5)
+                .move_rel(0, 10)
+                .line_rel(5, -5)
+                .move_rel(h / 2 - 3, 0),
+            (true, _, HDir::RTL) => self
+                .move_rel(-(h / 2 + 3), 0)
+                .line_rel(5, -5)
+                .move_rel(0, 10)
+                .line_rel(-5, -5)
+                .move_rel(h / 2 + 3, 0),
+            (_, true, HDir::LTR) => self
+                .move_rel(-(h / 2 - 3), 0)
+                .line_rel(5, -5)
+                .move_rel(0, 10)
+                .line_rel(-5, -5)
+                .move_rel(h / 2 - 3, 0),
+            (_, true, HDir::RTL) => self
+                .move_rel(-(h / 2 + 3), 0)
+                .line_rel(-5, -5)
+                .move_rel(0, 10)
+                .line_rel(5, -5)
+                .move_rel(h / 2 + 3, 0),
+            (false, false, _) => self,
         }
     }
 
@@ -108,7 +114,7 @@ impl PathData {
                 .move_rel(10, 0)
                 .line_rel(-5, 5)
                 .move_rel(0, h / 2 - 3)
-        } else if h < - 50 {
+        } else if h < -50 {
             self.move_rel(0, -(h / 2 - 3))
                 .line_rel(-5, 5)
                 .move_rel(10, 0)
@@ -169,11 +175,13 @@ pub struct Element {
 impl Element {
     /// Construct a new `Element` of type `name`.
     pub fn new(name: impl Into<String>) -> Self {
-        Element { name: name.into(),
-                    attributes: collections::HashMap::new(),
-                    text: None,
-                    children: Vec::new(),
-                    siblings: Vec::new() }
+        Element {
+            name: name.into(),
+            attributes: collections::HashMap::new(),
+            text: None,
+            children: Vec::new(),
+            siblings: Vec::new(),
+        }
     }
 
     /// Set this Element's attribute `key` to `value`
@@ -183,8 +191,9 @@ impl Element {
     }
 
     /// Set all attributes via these `key`:`value`-pairs
-    pub fn set_all<'a>(mut self, iter: impl IntoIterator<Item=(&'a String, &'a String)>) -> Self {
-        self.attributes.extend(iter.into_iter().map(|(k, v)| (k.to_owned(), v.to_owned())));
+    pub fn set_all<'a>(mut self, iter: impl IntoIterator<Item = (&'a String, &'a String)>) -> Self {
+        self.attributes
+            .extend(iter.into_iter().map(|(k, v)| (k.to_owned(), v.to_owned())));
         self
     }
 
@@ -228,7 +237,7 @@ impl Element {
         self
     }
 
-    #[cfg(not(feature="visual-debug"))]
+    #[cfg(not(feature = "visual-debug"))]
     #[allow(unused_variables)]
     #[doc(hidden)]
     pub fn debug(self, name: &str, x: i64, y: i64, n: &super::RailroadNode) -> Self {
@@ -236,7 +245,7 @@ impl Element {
     }
 
     /// Adds some basic textual and visual debugging information to this Element
-    #[cfg(feature="visual-debug")]
+    #[cfg(feature = "visual-debug")]
     pub fn debug(self, name: &str, x: i64, y: i64, n: &super::RailroadNode) -> Self {
         self.set("railroad:type", name)
             .set("railroad:x", x)
@@ -245,10 +254,12 @@ impl Element {
             .set("railroad:exit_height", n.exit_height())
             .set("railroad:height", n.height())
             .set("railroad:width", n.width())
-            .add(Element::new("title")
-                        .text(name))
-            .append(Element::new("path")
-                    .set("d", PathData::new(HDir::LTR)
+            .add(Element::new("title").text(name))
+            .append(
+                Element::new("path")
+                    .set(
+                        "d",
+                        PathData::new(HDir::LTR)
                             .move_to(x, y)
                             .horizontal(n.width())
                             .vertical(5)
@@ -257,8 +268,10 @@ impl Element {
                             .horizontal(5)
                             .move_rel(-5, -n.height())
                             .move_rel(0, n.entry_height())
-                            .horizontal(10))
-                    .set("class", "debug"))
+                            .horizontal(10),
+                    )
+                    .set("class", "debug"),
+            )
     }
 }
 
