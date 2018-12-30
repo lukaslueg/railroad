@@ -387,6 +387,12 @@ impl VerticalGrid {
     }
 }
 
+impl ::std::iter::FromIterator<Box<RailroadNode>> for VerticalGrid {
+    fn from_iter<T: IntoIterator<Item = Box<RailroadNode>>>(iter: T) -> Self {
+        VerticalGrid::new(iter.into_iter().collect())
+    }
+}
+
 impl RailroadNode for VerticalGrid {
     fn entry_height(&self) -> i64 {
         0
@@ -447,6 +453,12 @@ impl HorizontalGrid {
     }
 }
 
+impl ::std::iter::FromIterator<Box<RailroadNode>> for HorizontalGrid {
+    fn from_iter<T: IntoIterator<Item = Box<RailroadNode>>>(iter: T) -> Self {
+        HorizontalGrid::new(iter.into_iter().collect())
+    }
+}
+
 impl RailroadNode for HorizontalGrid {
     fn entry_height(&self) -> i64 {
         0
@@ -495,6 +507,12 @@ impl Sequence {
 
     pub fn into_inner(self) -> Vec<Box<RailroadNode>> {
         self.children
+    }
+}
+
+impl ::std::iter::FromIterator<Box<RailroadNode>> for Sequence {
+    fn from_iter<T: IntoIterator<Item = Box<RailroadNode>>>(iter: T) -> Self {
+        Sequence::new(iter.into_iter().collect())
     }
 }
 
@@ -910,6 +928,12 @@ impl Stack {
     }
 }
 
+impl ::std::iter::FromIterator<Box<RailroadNode>> for Stack {
+    fn from_iter<T: IntoIterator<Item = Box<RailroadNode>>>(iter: T) -> Self {
+        Stack::new(iter.into_iter().collect())
+    }
+}
+
 impl RailroadNode for Stack {
     fn entry_height(&self) -> i64 {
         self.children.get(0).entry_height()
@@ -1018,6 +1042,12 @@ pub struct Choice {
     children: Vec<Box<RailroadNode>>,
     spacing: i64,
     attributes: collections::HashMap<String, String>,
+}
+
+impl ::std::iter::FromIterator<Box<RailroadNode>> for Choice {
+    fn from_iter<T: IntoIterator<Item = Box<RailroadNode>>>(iter: T) -> Self {
+        Choice::new(iter.into_iter().collect())
+    }
 }
 
 impl Choice {
