@@ -57,8 +57,8 @@ use std::collections;
 use std::fmt;
 use std::io;
 
-extern crate htmlescape;
-extern crate unicode_width;
+use htmlescape;
+
 
 pub mod notactuallysvg;
 pub use crate::notactuallysvg as svg;
@@ -236,14 +236,14 @@ trait RailroadNodeCollection {
     fn running_x<'a>(
         &'a self,
         spacing: i64,
-    ) -> Box<Iterator<Item = (&'a Box<RailroadNode>, i64)> + 'a>;
+    ) -> Box<dyn Iterator<Item = (&'a Box<dyn RailroadNode>, i64)> + 'a>;
 }
 
-impl RailroadNodeCollection for Vec<Box<RailroadNode>> {
+impl RailroadNodeCollection for Vec<Box<dyn RailroadNode>> {
     fn running_x<'a>(
         &'a self,
         spacing: i64,
-    ) -> Box<Iterator<Item = (&'a Box<RailroadNode>, i64)> + 'a> {
+    ) -> Box<dyn Iterator<Item = (&'a Box<dyn RailroadNode>, i64)> + 'a> {
         let mut x = 0;
         let it = self.iter().map(move |child| {
             let z = x;
@@ -321,7 +321,7 @@ where
     }
 
     /// Access an attribute on the main SVG-element that will be drawn.
-    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<String, String> {
+    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
 }
@@ -355,13 +355,13 @@ impl<I: RailroadNode> RailroadNode for Link<I> {
 /// A vertical group of unconnected elements.
 #[derive(Debug)]
 pub struct VerticalGrid {
-    children: Vec<Box<RailroadNode>>,
+    children: Vec<Box<dyn RailroadNode>>,
     spacing: i64,
     attributes: collections::HashMap<String, String>,
 }
 
 impl VerticalGrid {
-    pub fn new(children: Vec<Box<RailroadNode>>) -> Self {
+    pub fn new(children: Vec<Box<dyn RailroadNode>>) -> Self {
         let mut v = VerticalGrid {
             children,
             spacing: ARC_RADIUS,
@@ -372,23 +372,23 @@ impl VerticalGrid {
         v
     }
 
-    pub fn push(&mut self, child: Box<RailroadNode>) -> &mut Self {
+    pub fn push(&mut self, child: Box<dyn RailroadNode>) -> &mut Self {
         self.children.push(child);
         self
     }
 
-    pub fn into_inner(self) -> Vec<Box<RailroadNode>> {
+    pub fn into_inner(self) -> Vec<Box<dyn RailroadNode>> {
         self.children
     }
 
     /// Access an attribute on the main SVG-element that will be drawn.
-    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<String, String> {
+    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
 }
 
-impl ::std::iter::FromIterator<Box<RailroadNode>> for VerticalGrid {
-    fn from_iter<T: IntoIterator<Item = Box<RailroadNode>>>(iter: T) -> Self {
+impl ::std::iter::FromIterator<Box<dyn RailroadNode>> for VerticalGrid {
+    fn from_iter<T: IntoIterator<Item = Box<dyn RailroadNode>>>(iter: T) -> Self {
         VerticalGrid::new(iter.into_iter().collect())
     }
 }
@@ -421,13 +421,13 @@ impl RailroadNode for VerticalGrid {
 /// A horizontal group of unconnected elements.
 #[derive(Debug)]
 pub struct HorizontalGrid {
-    children: Vec<Box<RailroadNode>>,
+    children: Vec<Box<dyn RailroadNode>>,
     spacing: i64,
     attributes: collections::HashMap<String, String>,
 }
 
 impl HorizontalGrid {
-    pub fn new(children: Vec<Box<RailroadNode>>) -> Self {
+    pub fn new(children: Vec<Box<dyn RailroadNode>>) -> Self {
         let mut h = HorizontalGrid {
             children,
             spacing: ARC_RADIUS,
@@ -438,23 +438,23 @@ impl HorizontalGrid {
         h
     }
 
-    pub fn push(&mut self, child: Box<RailroadNode>) -> &mut Self {
+    pub fn push(&mut self, child: Box<dyn RailroadNode>) -> &mut Self {
         self.children.push(child);
         self
     }
 
-    pub fn into_inner(self) -> Vec<Box<RailroadNode>> {
+    pub fn into_inner(self) -> Vec<Box<dyn RailroadNode>> {
         self.children
     }
 
     /// Access an attribute on the main SVG-element that will be drawn.
-    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<String, String> {
+    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
 }
 
-impl ::std::iter::FromIterator<Box<RailroadNode>> for HorizontalGrid {
-    fn from_iter<T: IntoIterator<Item = Box<RailroadNode>>>(iter: T) -> Self {
+impl ::std::iter::FromIterator<Box<dyn RailroadNode>> for HorizontalGrid {
+    fn from_iter<T: IntoIterator<Item = Box<dyn RailroadNode>>>(iter: T) -> Self {
         HorizontalGrid::new(iter.into_iter().collect())
     }
 }
@@ -488,30 +488,30 @@ impl RailroadNode for HorizontalGrid {
 /// Also see `Stack` for a vertical group of elements.
 #[derive(Debug)]
 pub struct Sequence {
-    children: Vec<Box<RailroadNode>>,
+    children: Vec<Box<dyn RailroadNode>>,
     spacing: i64,
 }
 
 impl Sequence {
-    pub fn new(children: Vec<Box<RailroadNode>>) -> Sequence {
+    pub fn new(children: Vec<Box<dyn RailroadNode>>) -> Sequence {
         Sequence {
             children,
             spacing: 10,
         }
     }
 
-    pub fn push(&mut self, child: Box<RailroadNode>) -> &mut Self {
+    pub fn push(&mut self, child: Box<dyn RailroadNode>) -> &mut Self {
         self.children.push(child);
         self
     }
 
-    pub fn into_inner(self) -> Vec<Box<RailroadNode>> {
+    pub fn into_inner(self) -> Vec<Box<dyn RailroadNode>> {
         self.children
     }
 }
 
-impl ::std::iter::FromIterator<Box<RailroadNode>> for Sequence {
-    fn from_iter<T: IntoIterator<Item = Box<RailroadNode>>>(iter: T) -> Self {
+impl ::std::iter::FromIterator<Box<dyn RailroadNode>> for Sequence {
+    fn from_iter<T: IntoIterator<Item = Box<dyn RailroadNode>>>(iter: T) -> Self {
         Sequence::new(iter.into_iter().collect())
     }
 }
@@ -696,7 +696,7 @@ impl Terminal {
     }
 
     /// Access an attribute on the main SVG-element that will be drawn.
-    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<String, String> {
+    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
 }
@@ -751,7 +751,7 @@ impl NonTerminal {
     }
 
     /// Access an attribute on the main SVG-element that will be drawn.
-    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<String, String> {
+    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
 }
@@ -812,7 +812,7 @@ impl<T: RailroadNode> Optional<T> {
     }
 
     /// Access an attribute on the main SVG-element that will be drawn.
-    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<String, String> {
+    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
 }
@@ -870,7 +870,7 @@ impl<T: RailroadNode> RailroadNode for Optional<T> {
 /// Also see `Sequence` for a horizontal group of elements.
 #[derive(Debug)]
 pub struct Stack {
-    children: Vec<Box<RailroadNode>>,
+    children: Vec<Box<dyn RailroadNode>>,
     left_padding: i64,
     right_padding: i64,
     spacing: i64,
@@ -878,7 +878,7 @@ pub struct Stack {
 }
 
 impl Stack {
-    pub fn new(children: Vec<Box<RailroadNode>>) -> Self {
+    pub fn new(children: Vec<Box<dyn RailroadNode>>) -> Self {
         let mut s = Stack {
             children,
             left_padding: 10,
@@ -895,16 +895,16 @@ impl Stack {
         self
     }
 
-    pub fn into_inner(self) -> Vec<Box<RailroadNode>> {
+    pub fn into_inner(self) -> Vec<Box<dyn RailroadNode>> {
         self.children
     }
 
     /// Access an attribute on the main SVG-element that will be drawn.
-    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<String, String> {
+    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
 
-    fn padded_height(&self, child: &RailroadNode, next_child: &RailroadNode) -> i64 {
+    fn padded_height(&self, child: &dyn RailroadNode, next_child: &dyn RailroadNode) -> i64 {
         child.entry_height()
             + cmp::max(child.height_below_entry() + self.spacing, ARC_RADIUS * 2)
             + ARC_RADIUS
@@ -928,8 +928,8 @@ impl Stack {
     }
 }
 
-impl ::std::iter::FromIterator<Box<RailroadNode>> for Stack {
-    fn from_iter<T: IntoIterator<Item = Box<RailroadNode>>>(iter: T) -> Self {
+impl ::std::iter::FromIterator<Box<dyn RailroadNode>> for Stack {
+    fn from_iter<T: IntoIterator<Item = Box<dyn RailroadNode>>>(iter: T) -> Self {
         Stack::new(iter.into_iter().collect())
     }
 }
@@ -1039,19 +1039,19 @@ impl RailroadNode for Stack {
 /// `Optional(Choice(..))`.
 #[derive(Debug)]
 pub struct Choice {
-    children: Vec<Box<RailroadNode>>,
+    children: Vec<Box<dyn RailroadNode>>,
     spacing: i64,
     attributes: collections::HashMap<String, String>,
 }
 
-impl ::std::iter::FromIterator<Box<RailroadNode>> for Choice {
-    fn from_iter<T: IntoIterator<Item = Box<RailroadNode>>>(iter: T) -> Self {
+impl ::std::iter::FromIterator<Box<dyn RailroadNode>> for Choice {
+    fn from_iter<T: IntoIterator<Item = Box<dyn RailroadNode>>>(iter: T) -> Self {
         Choice::new(iter.into_iter().collect())
     }
 }
 
 impl Choice {
-    pub fn new(children: Vec<Box<RailroadNode>>) -> Self {
+    pub fn new(children: Vec<Box<dyn RailroadNode>>) -> Self {
         let mut c = Choice {
             children,
             spacing: 10,
@@ -1067,7 +1067,7 @@ impl Choice {
     }
 
     /// Access an attribute on the main SVG-element that will be drawn.
-    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<String, String> {
+    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
 
@@ -1079,11 +1079,11 @@ impl Choice {
         }
     }
 
-    pub fn into_inner(self) -> Vec<Box<RailroadNode>> {
+    pub fn into_inner(self) -> Vec<Box<dyn RailroadNode>> {
         self.children
     }
 
-    fn padded_height(&self, child: &RailroadNode) -> i64 {
+    fn padded_height(&self, child: &dyn RailroadNode) -> i64 {
         cmp::max(ARC_RADIUS, child.entry_height()) + child.height_below_entry() + self.spacing
     }
 }
@@ -1247,7 +1247,7 @@ where
     }
 
     /// Access an attribute on the main SVG-element that will be drawn.
-    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<String, String> {
+    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
 
@@ -1419,7 +1419,7 @@ impl<T: RailroadNode, U: RailroadNode> LabeledBox<T, U> {
     }
 
     /// Access an attribute on the main SVG-element that will be drawn.
-    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<String, String> {
+    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
 
@@ -1503,7 +1503,7 @@ impl Comment {
     }
 
     /// Access an attribute on the main SVG-element that will be drawn.
-    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<String, String> {
+    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
 }
@@ -1637,7 +1637,7 @@ impl<T: RailroadNode> RailroadNode for Diagram<T> {
 }
 
 impl<T: RailroadNode> fmt::Display for Diagram<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "{}", self.draw(0, 0, HDir::LTR))
     }
 }

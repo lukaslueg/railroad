@@ -7,8 +7,8 @@
 
 #[macro_use]
 extern crate lazy_static;
-extern crate railroad;
-extern crate railroad_verification;
+
+use railroad_verification;
 
 use railroad::*;
 

@@ -143,7 +143,7 @@ impl PathData {
 }
 
 impl ::std::fmt::Display for PathData {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> Result<(), ::std::fmt::Error> {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> Result<(), ::std::fmt::Error> {
         write!(f, "{}", self.text)
     }
 }
@@ -240,7 +240,7 @@ impl Element {
     #[cfg(not(feature = "visual-debug"))]
     #[allow(unused_variables)]
     #[doc(hidden)]
-    pub fn debug(self, name: &str, x: i64, y: i64, n: &super::RailroadNode) -> Self {
+    pub fn debug(self, name: &str, x: i64, y: i64, n: &dyn super::RailroadNode) -> Self {
         self
     }
 
@@ -276,7 +276,7 @@ impl Element {
 }
 
 impl ::std::fmt::Display for Element {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> Result<(), ::std::fmt::Error> {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> Result<(), ::std::fmt::Error> {
         write!(f, "<{}", self.name)?;
         let mut attrs = self.attributes.iter().collect::<Vec<_>>();
         attrs.sort_by_key(|(k, _)| *k);
