@@ -59,7 +59,6 @@ use std::io;
 
 use htmlescape;
 
-
 pub mod notactuallysvg;
 pub use crate::notactuallysvg as svg;
 use crate::svg::HDir;
