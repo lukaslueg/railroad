@@ -57,8 +57,6 @@ use std::collections;
 use std::fmt;
 use std::io;
 
-use htmlescape;
-
 pub mod notactuallysvg;
 pub use crate::notactuallysvg as svg;
 use crate::svg::HDir;
@@ -304,7 +302,7 @@ where
     I: RailroadNode,
 {
     pub fn new(inner: I, uri: String) -> Self {
-        let mut l = Link {
+        let mut l = Self {
             inner,
             uri,
             target: None,
@@ -361,7 +359,7 @@ pub struct VerticalGrid {
 
 impl VerticalGrid {
     pub fn new(children: Vec<Box<dyn RailroadNode>>) -> Self {
-        let mut v = VerticalGrid {
+        let mut v = Self {
             children,
             spacing: ARC_RADIUS,
             attributes: collections::HashMap::new(),
@@ -388,7 +386,7 @@ impl VerticalGrid {
 
 impl ::std::iter::FromIterator<Box<dyn RailroadNode>> for VerticalGrid {
     fn from_iter<T: IntoIterator<Item = Box<dyn RailroadNode>>>(iter: T) -> Self {
-        VerticalGrid::new(iter.into_iter().collect())
+        Self::new(iter.into_iter().collect())
     }
 }
 
@@ -427,7 +425,7 @@ pub struct HorizontalGrid {
 
 impl HorizontalGrid {
     pub fn new(children: Vec<Box<dyn RailroadNode>>) -> Self {
-        let mut h = HorizontalGrid {
+        let mut h = Self {
             children,
             spacing: ARC_RADIUS,
             attributes: collections::HashMap::new(),
@@ -454,7 +452,7 @@ impl HorizontalGrid {
 
 impl ::std::iter::FromIterator<Box<dyn RailroadNode>> for HorizontalGrid {
     fn from_iter<T: IntoIterator<Item = Box<dyn RailroadNode>>>(iter: T) -> Self {
-        HorizontalGrid::new(iter.into_iter().collect())
+        Self::new(iter.into_iter().collect())
     }
 }
 
@@ -492,8 +490,8 @@ pub struct Sequence {
 }
 
 impl Sequence {
-    pub fn new(children: Vec<Box<dyn RailroadNode>>) -> Sequence {
-        Sequence {
+    pub fn new(children: Vec<Box<dyn RailroadNode>>) -> Self {
+        Self {
             children,
             spacing: 10,
         }
@@ -511,13 +509,13 @@ impl Sequence {
 
 impl ::std::iter::FromIterator<Box<dyn RailroadNode>> for Sequence {
     fn from_iter<T: IntoIterator<Item = Box<dyn RailroadNode>>>(iter: T) -> Self {
-        Sequence::new(iter.into_iter().collect())
+        Self::new(iter.into_iter().collect())
     }
 }
 
 impl Default for Sequence {
     fn default() -> Self {
-        Sequence::new(vec![])
+        Self::new(vec![])
     }
 }
 
@@ -685,7 +683,7 @@ pub struct Terminal {
 
 impl Terminal {
     pub fn new(label: String) -> Self {
-        let mut t = Terminal {
+        let mut t = Self {
             label,
             attributes: collections::HashMap::new(),
         };
@@ -740,7 +738,7 @@ pub struct NonTerminal {
 
 impl NonTerminal {
     pub fn new(label: String) -> Self {
-        let mut nt = NonTerminal {
+        let mut nt = Self {
             label,
             attributes: collections::HashMap::new(),
         };
@@ -797,7 +795,7 @@ pub struct Optional<T: RailroadNode> {
 
 impl<T: RailroadNode> Optional<T> {
     pub fn new(inner: T) -> Self {
-        let mut o = Optional {
+        let mut o = Self {
             inner,
             attributes: collections::HashMap::new(),
         };
@@ -878,7 +876,7 @@ pub struct Stack {
 
 impl Stack {
     pub fn new(children: Vec<Box<dyn RailroadNode>>) -> Self {
-        let mut s = Stack {
+        let mut s = Self {
             children,
             left_padding: 10,
             right_padding: 10,
@@ -929,7 +927,7 @@ impl Stack {
 
 impl ::std::iter::FromIterator<Box<dyn RailroadNode>> for Stack {
     fn from_iter<T: IntoIterator<Item = Box<dyn RailroadNode>>>(iter: T) -> Self {
-        Stack::new(iter.into_iter().collect())
+        Self::new(iter.into_iter().collect())
     }
 }
 
@@ -1045,13 +1043,13 @@ pub struct Choice {
 
 impl ::std::iter::FromIterator<Box<dyn RailroadNode>> for Choice {
     fn from_iter<T: IntoIterator<Item = Box<dyn RailroadNode>>>(iter: T) -> Self {
-        Choice::new(iter.into_iter().collect())
+        Self::new(iter.into_iter().collect())
     }
 }
 
 impl Choice {
     pub fn new(children: Vec<Box<dyn RailroadNode>>) -> Self {
-        let mut c = Choice {
+        let mut c = Self {
             children,
             spacing: 10,
             attributes: collections::HashMap::new(),
@@ -1089,7 +1087,7 @@ impl Choice {
 
 impl Default for Choice {
     fn default() -> Self {
-        Choice::new(vec![])
+        Self::new(vec![])
     }
 }
 
@@ -1235,7 +1233,7 @@ where
     R: RailroadNode,
 {
     pub fn new(inner: I, repeat: R) -> Self {
-        let mut r = Repeat {
+        let mut r = Self {
             inner,
             repeat,
             spacing: 10,
@@ -1321,7 +1319,7 @@ pub struct Debug {
 impl Debug {
     pub fn new(entry_height: i64, height: i64, width: i64) -> Self {
         assert!(entry_height < height);
-        let mut d = Debug {
+        let mut d = Self {
             entry_height,
             height,
             width,
@@ -1399,13 +1397,13 @@ pub struct LabeledBox<T: RailroadNode, U: RailroadNode> {
 impl<T: RailroadNode> LabeledBox<T, Empty> {
     /// Construct a box with a label set to `Empty`
     pub fn without_label(inner: T) -> Self {
-        LabeledBox::new(inner, Empty)
+        Self::new(inner, Empty)
     }
 }
 
 impl<T: RailroadNode, U: RailroadNode> LabeledBox<T, U> {
     pub fn new(inner: T, label: U) -> Self {
-        let mut l = LabeledBox {
+        let mut l = Self {
             inner,
             label,
             spacing: 8,
@@ -1492,7 +1490,7 @@ pub struct Comment {
 
 impl Comment {
     pub fn new(text: String) -> Self {
-        let mut c = Comment {
+        let mut c = Self {
             text,
             attributes: collections::HashMap::new(),
         };
@@ -1554,7 +1552,7 @@ impl<T: RailroadNode> Diagram<T> {
     /// println!("{}", dia);
     /// ```
     pub fn new(root: T) -> Self {
-        Diagram {
+        Self {
             root,
             extra_attributes: collections::HashMap::new(),
             extra_elements: vec![],

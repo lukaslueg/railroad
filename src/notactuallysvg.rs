@@ -42,7 +42,7 @@ pub struct PathData {
 impl PathData {
     /// Construct a empty `PathData`
     pub fn new(h_dir: HDir) -> Self {
-        PathData {
+        Self {
             text: String::new(),
             h_dir,
         }
@@ -175,7 +175,7 @@ pub struct Element {
 impl Element {
     /// Construct a new `Element` of type `name`.
     pub fn new(name: impl Into<String>) -> Self {
-        Element {
+        Self {
             name: name.into(),
             attributes: collections::HashMap::new(),
             text: None,
@@ -216,7 +216,7 @@ impl Element {
     /// Add a child to this Element
     ///
     /// Children is written within the opening and closing tag of this Element.
-    pub fn add(mut self, e: Element) -> Self {
+    pub fn add(mut self, e: Self) -> Self {
         self.children.push(e);
         self
     }
@@ -224,7 +224,7 @@ impl Element {
     /// Add a child to this Element
     ///
     /// Children is written within the opening and closing tag of this Element.
-    pub fn push(&mut self, e: Element) -> &mut Self {
+    pub fn push(&mut self, e: Self) -> &mut Self {
         self.children.push(e);
         self
     }
@@ -232,7 +232,7 @@ impl Element {
     /// Add a sibling to this Element
     ///
     /// Siblings is written after the closing tag of this Element.
-    pub fn append(mut self, e: Element) -> Self {
+    pub fn append(mut self, e: Self) -> Self {
         self.siblings.push(e);
         self
     }
