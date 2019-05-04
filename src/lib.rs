@@ -27,7 +27,7 @@
 //! belongs to the described language is represented by one of the possible paths
 //! between those points.
 //!
-//! Using this library, diagrams are created by primitives which implemented `RailroadNode`.
+//! Using this library, diagrams are created by primitives which implemented `Node`.
 //! Primitives are combined into more complex strctures by wrapping simple elements into more
 //! complex ones.
 //!
@@ -48,7 +48,7 @@
 //!                 .set("type", "text/css")
 //!                 .raw_text(DEFAULT_CSS));
 //!
-//! // A `RailroadNode`'s `fmt::Display` is its SVG.
+//! // A `Node`'s `fmt::Display` is its SVG.
 //! println!("<html>{}</html>", dia);
 //! ```
 //!
@@ -121,7 +121,7 @@ pub const DEFAULT_CSS: &str = r#"
 
 // TODO escape all the attributes
 
-/// A diagram is built from a set of primitives which implement `RailroadNode`.
+/// A diagram is built from a set of primitives which implement `Node`.
 ///
 /// A primitive is a geometric box, within which it can draw whatever it wants.
 /// Simple primitives (e.g. `Start`) have fixed width, height etc.. Complex
@@ -130,7 +130,7 @@ pub const DEFAULT_CSS: &str = r#"
 /// to be drawn, the wrapping primitive computes the desired location of the wrapped
 /// primitive(s) and calls `.draw()` on them. It is the primitive's job
 /// to ensure that it uses only the space it announced.
-pub trait RailroadNode: ::std::fmt::Debug {
+pub trait Node: ::std::fmt::Debug {
     /// The vertical distance from this element's top to where the entering,
     /// connecting path is drawn.
     ///
@@ -159,9 +159,9 @@ pub trait RailroadNode: ::std::fmt::Debug {
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element;
 }
 
-impl<T> RailroadNode for Box<T>
+impl<T> Node for Box<T>
 where
-    T: RailroadNode + ?Sized,
+    T: Node + ?Sized,
 {
     fn entry_height(&self) -> i64 {
         (**self).entry_height()
@@ -177,9 +177,9 @@ where
     }
 }
 
-impl<'a, T> RailroadNode for &'a Box<T>
+impl<'a, T> Node for &'a Box<T>
 where
-    T: RailroadNode + 'a + ?Sized,
+    T: Node + 'a + ?Sized,
 {
     fn entry_height(&self) -> i64 {
         (**self).entry_height()
@@ -195,24 +195,24 @@ where
     }
 }
 
-impl<T> RailroadNode for Option<T>
+impl<T> Node for Option<T>
 where
-    T: RailroadNode,
+    T: Node,
 {
     fn entry_height(&self) -> i64 {
-        self.as_ref().map(|c| c.entry_height()).unwrap_or_default()
+        self.as_ref().map(Node::entry_height).unwrap_or_default()
     }
 
     fn exit_height(&self) -> i64 {
-        self.as_ref().map(|c| c.exit_height()).unwrap_or_default()
+        self.as_ref().map(Node::exit_height).unwrap_or_default()
     }
 
     fn height(&self) -> i64 {
-        self.as_ref().map(|c| c.height()).unwrap_or_default()
+        self.as_ref().map(Node::height).unwrap_or_default()
     }
 
     fn width(&self) -> i64 {
-        self.as_ref().map(|c| c.width()).unwrap_or_default()
+        self.as_ref().map(Node::width).unwrap_or_default()
     }
 
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
@@ -223,7 +223,7 @@ where
     }
 }
 
-trait RailroadNodeCollection {
+trait NodeCollection {
     fn max_entry_height(&self) -> i64;
     fn max_height(&self) -> i64;
     fn max_height_below_entry(&self) -> i64;
@@ -233,14 +233,14 @@ trait RailroadNodeCollection {
     fn running_x<'a>(
         &'a self,
         spacing: i64,
-    ) -> Box<dyn Iterator<Item = (&'a Box<dyn RailroadNode>, i64)> + 'a>;
+    ) -> Box<dyn Iterator<Item = (&'a Box<dyn Node>, i64)> + 'a>;
 }
 
-impl RailroadNodeCollection for Vec<Box<dyn RailroadNode>> {
+impl NodeCollection for Vec<Box<dyn Node>> {
     fn running_x<'a>(
         &'a self,
         spacing: i64,
-    ) -> Box<dyn Iterator<Item = (&'a Box<dyn RailroadNode>, i64)> + 'a> {
+    ) -> Box<dyn Iterator<Item = (&'a Box<dyn Node>, i64)> + 'a> {
         let mut x = 0;
         let it = self.iter().map(move |child| {
             let z = x;
@@ -252,32 +252,32 @@ impl RailroadNodeCollection for Vec<Box<dyn RailroadNode>> {
 
     fn max_height_below_entry(&self) -> i64 {
         self.iter()
-            .map(|c| c.height_below_entry())
+            .map(Node::height_below_entry)
             .max()
             .unwrap_or_default()
     }
 
     fn max_entry_height(&self) -> i64 {
         self.iter()
-            .map(|c| c.entry_height())
+            .map(Node::entry_height)
             .max()
             .unwrap_or_default()
     }
 
     fn max_height(&self) -> i64 {
-        self.iter().map(|c| c.height()).max().unwrap_or_default()
+        self.iter().map(Node::height).max().unwrap_or_default()
     }
 
     fn max_width(&self) -> i64 {
-        self.iter().map(|c| c.width()).max().unwrap_or_default()
+        self.iter().map(Node::width).max().unwrap_or_default()
     }
 
     fn total_width(&self) -> i64 {
-        self.iter().map(|c| c.width()).sum()
+        self.iter().map(Node::width).sum()
     }
 
     fn total_height(&self) -> i64 {
-        self.iter().map(|c| c.height()).sum()
+        self.iter().map(Node::height).sum()
     }
 }
 
@@ -290,7 +290,7 @@ pub enum LinkTarget {
 
 /// Wraps another primitive, making it a clickable link to some URI.
 #[derive(Debug)]
-pub struct Link<I: RailroadNode> {
+pub struct Link<I: Node> {
     inner: I,
     uri: String,
     target: Option<LinkTarget>,
@@ -299,7 +299,7 @@ pub struct Link<I: RailroadNode> {
 
 impl<I> Link<I>
 where
-    I: RailroadNode,
+    I: Node,
 {
     pub fn new(inner: I, uri: String) -> Self {
         let mut l = Self {
@@ -323,7 +323,7 @@ where
     }
 }
 
-impl<I: RailroadNode> RailroadNode for Link<I> {
+impl<I: Node> Node for Link<I> {
     fn entry_height(&self) -> i64 {
         self.inner.entry_height()
     }
@@ -352,13 +352,13 @@ impl<I: RailroadNode> RailroadNode for Link<I> {
 /// A vertical group of unconnected elements.
 #[derive(Debug)]
 pub struct VerticalGrid {
-    children: Vec<Box<dyn RailroadNode>>,
+    children: Vec<Box<dyn Node>>,
     spacing: i64,
     attributes: collections::HashMap<String, String>,
 }
 
 impl VerticalGrid {
-    pub fn new(children: Vec<Box<dyn RailroadNode>>) -> Self {
+    pub fn new(children: Vec<Box<dyn Node>>) -> Self {
         let mut v = Self {
             children,
             spacing: ARC_RADIUS,
@@ -369,12 +369,12 @@ impl VerticalGrid {
         v
     }
 
-    pub fn push(&mut self, child: Box<dyn RailroadNode>) -> &mut Self {
+    pub fn push(&mut self, child: Box<dyn Node>) -> &mut Self {
         self.children.push(child);
         self
     }
 
-    pub fn into_inner(self) -> Vec<Box<dyn RailroadNode>> {
+    pub fn into_inner(self) -> Vec<Box<dyn Node>> {
         self.children
     }
 
@@ -384,13 +384,13 @@ impl VerticalGrid {
     }
 }
 
-impl ::std::iter::FromIterator<Box<dyn RailroadNode>> for VerticalGrid {
-    fn from_iter<T: IntoIterator<Item = Box<dyn RailroadNode>>>(iter: T) -> Self {
+impl ::std::iter::FromIterator<Box<dyn Node>> for VerticalGrid {
+    fn from_iter<T: IntoIterator<Item = Box<dyn Node>>>(iter: T) -> Self {
         Self::new(iter.into_iter().collect())
     }
 }
 
-impl RailroadNode for VerticalGrid {
+impl Node for VerticalGrid {
     fn entry_height(&self) -> i64 {
         0
     }
@@ -418,13 +418,13 @@ impl RailroadNode for VerticalGrid {
 /// A horizontal group of unconnected elements.
 #[derive(Debug)]
 pub struct HorizontalGrid {
-    children: Vec<Box<dyn RailroadNode>>,
+    children: Vec<Box<dyn Node>>,
     spacing: i64,
     attributes: collections::HashMap<String, String>,
 }
 
 impl HorizontalGrid {
-    pub fn new(children: Vec<Box<dyn RailroadNode>>) -> Self {
+    pub fn new(children: Vec<Box<dyn Node>>) -> Self {
         let mut h = Self {
             children,
             spacing: ARC_RADIUS,
@@ -435,12 +435,12 @@ impl HorizontalGrid {
         h
     }
 
-    pub fn push(&mut self, child: Box<dyn RailroadNode>) -> &mut Self {
+    pub fn push(&mut self, child: Box<dyn Node>) -> &mut Self {
         self.children.push(child);
         self
     }
 
-    pub fn into_inner(self) -> Vec<Box<dyn RailroadNode>> {
+    pub fn into_inner(self) -> Vec<Box<dyn Node>> {
         self.children
     }
 
@@ -450,13 +450,13 @@ impl HorizontalGrid {
     }
 }
 
-impl ::std::iter::FromIterator<Box<dyn RailroadNode>> for HorizontalGrid {
-    fn from_iter<T: IntoIterator<Item = Box<dyn RailroadNode>>>(iter: T) -> Self {
+impl ::std::iter::FromIterator<Box<dyn Node>> for HorizontalGrid {
+    fn from_iter<T: IntoIterator<Item = Box<dyn Node>>>(iter: T) -> Self {
         Self::new(iter.into_iter().collect())
     }
 }
 
-impl RailroadNode for HorizontalGrid {
+impl Node for HorizontalGrid {
     fn entry_height(&self) -> i64 {
         0
     }
@@ -485,30 +485,30 @@ impl RailroadNode for HorizontalGrid {
 /// Also see `Stack` for a vertical group of elements.
 #[derive(Debug)]
 pub struct Sequence {
-    children: Vec<Box<dyn RailroadNode>>,
+    children: Vec<Box<dyn Node>>,
     spacing: i64,
 }
 
 impl Sequence {
-    pub fn new(children: Vec<Box<dyn RailroadNode>>) -> Self {
+    pub fn new(children: Vec<Box<dyn Node>>) -> Self {
         Self {
             children,
             spacing: 10,
         }
     }
 
-    pub fn push(&mut self, child: Box<dyn RailroadNode>) -> &mut Self {
+    pub fn push(&mut self, child: Box<dyn Node>) -> &mut Self {
         self.children.push(child);
         self
     }
 
-    pub fn into_inner(self) -> Vec<Box<dyn RailroadNode>> {
+    pub fn into_inner(self) -> Vec<Box<dyn Node>> {
         self.children
     }
 }
 
-impl ::std::iter::FromIterator<Box<dyn RailroadNode>> for Sequence {
-    fn from_iter<T: IntoIterator<Item = Box<dyn RailroadNode>>>(iter: T) -> Self {
+impl ::std::iter::FromIterator<Box<dyn Node>> for Sequence {
+    fn from_iter<T: IntoIterator<Item = Box<dyn Node>>>(iter: T) -> Self {
         Self::new(iter.into_iter().collect())
     }
 }
@@ -519,7 +519,7 @@ impl Default for Sequence {
     }
 }
 
-impl RailroadNode for Sequence {
+impl Node for Sequence {
     fn entry_height(&self) -> i64 {
         self.children.max_entry_height()
     }
@@ -565,7 +565,7 @@ impl RailroadNode for Sequence {
 #[derive(Debug)]
 pub struct End;
 
-impl RailroadNode for End {
+impl Node for End {
     fn entry_height(&self) -> i64 {
         10
     }
@@ -593,7 +593,7 @@ impl RailroadNode for End {
 #[derive(Debug)]
 pub struct SimpleStart;
 
-impl RailroadNode for SimpleStart {
+impl Node for SimpleStart {
     fn entry_height(&self) -> i64 {
         5
     }
@@ -622,7 +622,7 @@ impl RailroadNode for SimpleStart {
 #[derive(Debug)]
 pub struct SimpleEnd;
 
-impl RailroadNode for SimpleEnd {
+impl Node for SimpleEnd {
     fn entry_height(&self) -> i64 {
         5
     }
@@ -650,7 +650,7 @@ impl RailroadNode for SimpleEnd {
 #[derive(Debug)]
 pub struct Start;
 
-impl RailroadNode for Start {
+impl Node for Start {
     fn entry_height(&self) -> i64 {
         10
     }
@@ -698,7 +698,7 @@ impl Terminal {
     }
 }
 
-impl RailroadNode for Terminal {
+impl Node for Terminal {
     fn entry_height(&self) -> i64 {
         11
     }
@@ -753,7 +753,7 @@ impl NonTerminal {
     }
 }
 
-impl RailroadNode for NonTerminal {
+impl Node for NonTerminal {
     fn entry_height(&self) -> i64 {
         11
     }
@@ -788,12 +788,12 @@ impl RailroadNode for NonTerminal {
 ///
 /// Draws a separate path above, which skips the given element.
 #[derive(Debug)]
-pub struct Optional<T: RailroadNode> {
+pub struct Optional<T: Node> {
     inner: T,
     attributes: collections::HashMap<String, String>,
 }
 
-impl<T: RailroadNode> Optional<T> {
+impl<T: Node> Optional<T> {
     pub fn new(inner: T) -> Self {
         let mut o = Self {
             inner,
@@ -814,13 +814,13 @@ impl<T: RailroadNode> Optional<T> {
     }
 }
 
-impl<T: RailroadNode> AsRef<T> for Optional<T> {
+impl<T: Node> AsRef<T> for Optional<T> {
     fn as_ref(&self) -> &T {
         &self.inner
     }
 }
 
-impl<T: RailroadNode> RailroadNode for Optional<T> {
+impl<T: Node> Node for Optional<T> {
     fn entry_height(&self) -> i64 {
         ARC_RADIUS + cmp::max(ARC_RADIUS, self.inner.entry_height())
     }
@@ -867,7 +867,7 @@ impl<T: RailroadNode> RailroadNode for Optional<T> {
 /// Also see `Sequence` for a horizontal group of elements.
 #[derive(Debug)]
 pub struct Stack {
-    children: Vec<Box<dyn RailroadNode>>,
+    children: Vec<Box<dyn Node>>,
     left_padding: i64,
     right_padding: i64,
     spacing: i64,
@@ -875,7 +875,7 @@ pub struct Stack {
 }
 
 impl Stack {
-    pub fn new(children: Vec<Box<dyn RailroadNode>>) -> Self {
+    pub fn new(children: Vec<Box<dyn Node>>) -> Self {
         let mut s = Self {
             children,
             left_padding: 10,
@@ -887,12 +887,12 @@ impl Stack {
         s
     }
 
-    pub fn push(&mut self, child: impl RailroadNode + 'static) -> &mut Self {
+    pub fn push(&mut self, child: impl Node + 'static) -> &mut Self {
         self.children.push(Box::new(child));
         self
     }
 
-    pub fn into_inner(self) -> Vec<Box<dyn RailroadNode>> {
+    pub fn into_inner(self) -> Vec<Box<dyn Node>> {
         self.children
     }
 
@@ -901,7 +901,7 @@ impl Stack {
         self.attributes.entry(key)
     }
 
-    fn padded_height(&self, child: &dyn RailroadNode, next_child: &dyn RailroadNode) -> i64 {
+    fn padded_height(&self, child: &dyn Node, next_child: &dyn Node) -> i64 {
         child.entry_height()
             + cmp::max(child.height_below_entry() + self.spacing, ARC_RADIUS * 2)
             + ARC_RADIUS
@@ -925,13 +925,13 @@ impl Stack {
     }
 }
 
-impl ::std::iter::FromIterator<Box<dyn RailroadNode>> for Stack {
-    fn from_iter<T: IntoIterator<Item = Box<dyn RailroadNode>>>(iter: T) -> Self {
+impl ::std::iter::FromIterator<Box<dyn Node>> for Stack {
+    fn from_iter<T: IntoIterator<Item = Box<dyn Node>>>(iter: T) -> Self {
         Self::new(iter.into_iter().collect())
     }
 }
 
-impl RailroadNode for Stack {
+impl Node for Stack {
     fn entry_height(&self) -> i64 {
         self.children.get(0).entry_height()
     }
@@ -1036,19 +1036,19 @@ impl RailroadNode for Stack {
 /// `Optional(Choice(..))`.
 #[derive(Debug)]
 pub struct Choice {
-    children: Vec<Box<dyn RailroadNode>>,
+    children: Vec<Box<dyn Node>>,
     spacing: i64,
     attributes: collections::HashMap<String, String>,
 }
 
-impl ::std::iter::FromIterator<Box<dyn RailroadNode>> for Choice {
-    fn from_iter<T: IntoIterator<Item = Box<dyn RailroadNode>>>(iter: T) -> Self {
+impl ::std::iter::FromIterator<Box<dyn Node>> for Choice {
+    fn from_iter<T: IntoIterator<Item = Box<dyn Node>>>(iter: T) -> Self {
         Self::new(iter.into_iter().collect())
     }
 }
 
 impl Choice {
-    pub fn new(children: Vec<Box<dyn RailroadNode>>) -> Self {
+    pub fn new(children: Vec<Box<dyn Node>>) -> Self {
         let mut c = Self {
             children,
             spacing: 10,
@@ -1058,7 +1058,7 @@ impl Choice {
         c
     }
 
-    pub fn push(&mut self, child: impl RailroadNode + 'static) -> &mut Self {
+    pub fn push(&mut self, child: impl Node + 'static) -> &mut Self {
         self.children.push(Box::new(child));
         self
     }
@@ -1076,11 +1076,11 @@ impl Choice {
         }
     }
 
-    pub fn into_inner(self) -> Vec<Box<dyn RailroadNode>> {
+    pub fn into_inner(self) -> Vec<Box<dyn Node>> {
         self.children
     }
 
-    fn padded_height(&self, child: &dyn RailroadNode) -> i64 {
+    fn padded_height(&self, child: &dyn Node) -> i64 {
         cmp::max(ARC_RADIUS, child.entry_height()) + child.height_below_entry() + self.spacing
     }
 }
@@ -1091,7 +1091,7 @@ impl Default for Choice {
     }
 }
 
-impl RailroadNode for Choice {
+impl Node for Choice {
     fn entry_height(&self) -> i64 {
         self.children.get(0).entry_height()
     }
@@ -1220,7 +1220,7 @@ impl RailroadNode for Choice {
 
 /// Wraps one element by providing a backwards-path through another element.
 #[derive(Debug)]
-pub struct Repeat<I: RailroadNode, R: RailroadNode> {
+pub struct Repeat<I: Node, R: Node> {
     inner: I,
     repeat: R,
     spacing: i64,
@@ -1229,8 +1229,8 @@ pub struct Repeat<I: RailroadNode, R: RailroadNode> {
 
 impl<I, R> Repeat<I, R>
 where
-    I: RailroadNode,
-    R: RailroadNode,
+    I: Node,
+    R: Node,
 {
     pub fn new(inner: I, repeat: R) -> Self {
         let mut r = Self {
@@ -1256,10 +1256,10 @@ where
     }
 }
 
-impl<I, R> RailroadNode for Repeat<I, R>
+impl<I, R> Node for Repeat<I, R>
 where
-    I: RailroadNode,
-    R: RailroadNode,
+    I: Node,
+    R: Node,
 {
     fn entry_height(&self) -> i64 {
         self.inner.entry_height()
@@ -1335,7 +1335,7 @@ impl Debug {
     }
 }
 
-impl RailroadNode for Debug {
+impl Node for Debug {
     fn entry_height(&self) -> i64 {
         self.entry_height
     }
@@ -1366,7 +1366,7 @@ impl RailroadNode for Debug {
 #[derive(Debug)]
 pub struct Empty;
 
-impl RailroadNode for Empty {
+impl Node for Empty {
     fn entry_height(&self) -> i64 {
         0
     }
@@ -1386,7 +1386,7 @@ impl RailroadNode for Empty {
 ///
 /// You may want to use `Comment` or `Empty` for the label.
 #[derive(Debug)]
-pub struct LabeledBox<T: RailroadNode, U: RailroadNode> {
+pub struct LabeledBox<T: Node, U: Node> {
     inner: T,
     label: U,
     spacing: i64,
@@ -1394,14 +1394,14 @@ pub struct LabeledBox<T: RailroadNode, U: RailroadNode> {
     attributes: collections::HashMap<String, String>,
 }
 
-impl<T: RailroadNode> LabeledBox<T, Empty> {
+impl<T: Node> LabeledBox<T, Empty> {
     /// Construct a box with a label set to `Empty`
     pub fn without_label(inner: T) -> Self {
         Self::new(inner, Empty)
     }
 }
 
-impl<T: RailroadNode, U: RailroadNode> LabeledBox<T, U> {
+impl<T: Node, U: Node> LabeledBox<T, U> {
     pub fn new(inner: T, label: U) -> Self {
         let mut l = Self {
             inner,
@@ -1437,7 +1437,7 @@ impl<T: RailroadNode, U: RailroadNode> LabeledBox<T, U> {
     }
 }
 
-impl<T: RailroadNode, U: RailroadNode> RailroadNode for LabeledBox<T, U> {
+impl<T: Node, U: Node> Node for LabeledBox<T, U> {
     fn entry_height(&self) -> i64 {
         self.padding() + self.label.height() + self.spacing() + self.inner.entry_height()
     }
@@ -1505,7 +1505,7 @@ impl Comment {
     }
 }
 
-impl RailroadNode for Comment {
+impl Node for Comment {
     fn entry_height(&self) -> i64 {
         10
     }
@@ -1527,7 +1527,7 @@ impl RailroadNode for Comment {
 }
 
 #[derive(Debug)]
-pub struct Diagram<T: RailroadNode> {
+pub struct Diagram<T: Node> {
     root: T,
     extra_attributes: collections::HashMap<String, String>,
     extra_elements: Vec<svg::Element>,
@@ -1537,7 +1537,7 @@ pub struct Diagram<T: RailroadNode> {
     bottom_padding: i64,
 }
 
-impl<T: RailroadNode> Diagram<T> {
+impl<T: Node> Diagram<T> {
     /// Create a diagram using the given root-element.
     ///
     /// ```
@@ -1601,7 +1601,7 @@ impl<T: RailroadNode> Diagram<T> {
     }
 }
 
-impl<T: RailroadNode> RailroadNode for Diagram<T> {
+impl<T: Node> Node for Diagram<T> {
     fn entry_height(&self) -> i64 {
         0
     }
@@ -1633,7 +1633,7 @@ impl<T: RailroadNode> RailroadNode for Diagram<T> {
     }
 }
 
-impl<T: RailroadNode> fmt::Display for Diagram<T> {
+impl<T: Node> fmt::Display for Diagram<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "{}", self.draw(0, 0, HDir::LTR))
     }

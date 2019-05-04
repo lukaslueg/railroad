@@ -11,7 +11,7 @@
 
 Railroad diagrams are a way to represent context-free grammar. Every diagram has exactly one starting- and end-point; everything that belongs to the described language is represented by one of the possible paths between those points.
 
-Using this library, diagrams are created using primitives which implement `RailroadNode`. Primitives are combined into more complex structures by wrapping simple elements into more complex ones.
+Using this library, diagrams are created using primitives which implement `Node`. Primitives are combined into more complex structures by wrapping simple elements into more complex ones.
 
 
 ```rust
@@ -34,4 +34,4 @@ println!("{}", dia);
 
 ![diagram for constraint syntax](https://raw.githubusercontent.com/lukaslueg/railroad/master/examples/column_constraint.jpeg)
 
-When adding new `RailroadNode`-primitives to this library, you may find `examples/visual.rs` come in handy to quickly generate special-cases and check if they render properly. Use the `visual-debug` feature to add guide-lines to the rendered diagram and extra information to the SVG's code.
+When adding new `Node`-primitives to this library, you may find `examples/visual.rs` come in handy to quickly generate special-cases and check if they render properly. Use the `visual-debug` feature to add guide-lines to the rendered diagram and extra information to the SVG's code.
