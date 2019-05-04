@@ -82,8 +82,21 @@ fn main() {
         };
     }
 
-    f.write_all(b"<html>").unwrap();
-    f.write_all(b"<head><style type=\"text/css\">svg.railroad { border: 1px solid; margin: 10px }</style></head>").unwrap();
+    f.write_all(b"<!DOCTYPE html><html>").unwrap();
+    f.write_all(
+        br#"
+<head>
+    <meta charset="utf-8">
+    <title>Railroad diagram examples</title>
+    <style type="text/css">
+        svg.railroad {
+            border: 1px solid;
+            margin: 10px;
+        }
+    </style>
+</head>"#,
+    )
+    .unwrap();
 
     // Very simple
     dia!(nonterm!("Foo"));
