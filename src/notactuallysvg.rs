@@ -1,6 +1,5 @@
 use htmlescape;
-use std::collections;
-use std::fmt::Write;
+use std::{collections, fmt::Write};
 
 /// A shorthand to draw rounded corners, see `PathData::arc`.
 #[derive(Clone, Copy)]
@@ -152,6 +151,7 @@ impl ::std::fmt::Display for PathData {
 ///
 /// ```
 /// use railroad::notactuallysvg as svg;
+///
 /// let e = svg::Element::new("g")
 ///         .add(svg::Element::new("rect")
 ///                 .set("class", "important")
@@ -251,7 +251,6 @@ impl Element {
             .set("railroad:x", x)
             .set("railroad:y", y)
             .set("railroad:entry_height", n.entry_height())
-            .set("railroad:exit_height", n.exit_height())
             .set("railroad:height", n.height())
             .set("railroad:width", n.width())
             .add(Element::new("title").text(name))

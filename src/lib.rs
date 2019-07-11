@@ -1,6 +1,6 @@
 // MIT License
 //
-// Copyright (c) 2018 Lukas Lueg (lukas.lueg@gmail.com)
+// Copyright (c) 2018, 2019 Lukas Lueg (lukas.lueg@gmail.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -52,10 +52,7 @@
 //! println!("<html>{}</html>", dia);
 //! ```
 //!
-use std::cmp;
-use std::collections;
-use std::fmt;
-use std::io;
+use std::{cmp, collections, fmt, io};
 
 pub mod notactuallysvg;
 pub use crate::notactuallysvg as svg;
@@ -74,6 +71,7 @@ fn text_width(s: &str) -> usize {
     s.width() + (s.width() / 20)
 }
 
+/// Default Cascading Style Sheets for the resuling SVG.
 pub const DEFAULT_CSS: &str = r#"
     svg.railroad {
         background-color: hsl(30, 20%, 95%);
@@ -119,30 +117,21 @@ pub const DEFAULT_CSS: &str = r#"
         fill:rgba(90, 90, 150, .1);
     }"#;
 
-// TODO escape all the attributes
-
 /// A diagram is built from a set of primitives which implement `Node`.
 ///
 /// A primitive is a geometric box, within which it can draw whatever it wants.
 /// Simple primitives (e.g. `Start`) have fixed width, height etc.. Complex
-/// primitives, which wrap other primitives, (e.g. `Sequence`) use the methods
+/// primitives, which wrap other primitives (e.g. `Sequence`), use the methods
 /// defined here to compute their own geometry. When the time comes for a primitive
 /// to be drawn, the wrapping primitive computes the desired location of the wrapped
 /// primitive(s) and calls `.draw()` on them. It is the primitive's job
 /// to ensure that it uses only the space it announced.
-pub trait Node: ::std::fmt::Debug {
+pub trait Node {
     /// The vertical distance from this element's top to where the entering,
     /// connecting path is drawn.
     ///
     /// By convention, the path connecting primitives enters from the left.
     fn entry_height(&self) -> i64;
-
-    /// Currently unused, as all elements exit on the same height as their entry.
-    /// In the future, we may want to relax that constraint.
-    #[doc(hidden)]
-    fn exit_height(&self) -> i64 {
-        self.entry_height()
-    }
 
     /// This primitives's total height.
     fn height(&self) -> i64;
@@ -159,128 +148,107 @@ pub trait Node: ::std::fmt::Debug {
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element;
 }
 
-impl<T> Node for Box<T>
-where
-    T: Node + ?Sized,
-{
-    fn entry_height(&self) -> i64 {
-        (**self).entry_height()
-    }
-    fn width(&self) -> i64 {
-        (**self).width()
-    }
-    fn height(&self) -> i64 {
-        (**self).height()
-    }
-    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
-        (**self).draw(x, y, h_dir)
+impl fmt::Debug for dyn Node {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Node")
+            .field("entry_height", &self.entry_height())
+            .field("height", &self.height())
+            .field("width", &self.width())
+            .finish()
     }
 }
 
-impl<'a, T> Node for &'a Box<T>
-where
-    T: Node + 'a + ?Sized,
-{
-    fn entry_height(&self) -> i64 {
-        (**self).entry_height()
-    }
-    fn width(&self) -> i64 {
-        (**self).width()
-    }
-    fn height(&self) -> i64 {
-        (**self).height()
-    }
-    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
-        (**self).draw(x, y, h_dir)
-    }
-}
+macro_rules! deref_impl {
+    ($($sig:tt)+) => {
+        impl $($sig)+ {
+            fn entry_height(&self) -> i64 {
+                (**self).entry_height()
+            }
 
-impl<T> Node for Option<T>
-where
-    T: Node,
-{
-    fn entry_height(&self) -> i64 {
-        self.as_ref().map(Node::entry_height).unwrap_or_default()
-    }
+            fn height(&self) -> i64 {
+                (**self).height()
+            }
 
-    fn exit_height(&self) -> i64 {
-        self.as_ref().map(Node::exit_height).unwrap_or_default()
-    }
+            fn width(&self) -> i64 {
+                (**self).width()
+            }
 
-    fn height(&self) -> i64 {
-        self.as_ref().map(Node::height).unwrap_or_default()
-    }
-
-    fn width(&self) -> i64 {
-        self.as_ref().map(Node::width).unwrap_or_default()
-    }
-
-    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
-        match self {
-            Some(c) => c.draw(x, y, h_dir),
-            None => unimplemented!(),
+            fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
+                (**self).draw(x, y, h_dir)
+            }
         }
-    }
+    };
+}
+deref_impl!(<'a, N> Node for &'a N where N: Node + ?Sized);
+deref_impl!(<'a, N> Node for &'a mut N where N: Node + ?Sized);
+deref_impl!(<N> Node for Box<N> where N: Node + ?Sized);
+deref_impl!(<N> Node for std::rc::Rc<N> where N: Node + ?Sized);
+deref_impl!(<N> Node for std::sync::Arc<N> where N: Node + ?Sized);
+
+/// Helper trait for collections of nodes.
+pub trait NodeCollection {
+    /// The maximum `entry_height()`-value.
+    fn max_entry_height(self) -> i64;
+
+    /// The maximum `height()`-value.
+    fn max_height(self) -> i64;
+
+    /// The maximum `height_below_entry()`-value.
+    fn max_height_below_entry(self) -> i64;
+
+    /// The maximum `width()`-value.
+    fn max_width(self) -> i64;
+
+    /// The sum of all `width()`-values.
+    fn total_width(self) -> i64;
+
+    /// The sum of all `height()`-values.
+    fn total_height(self) -> i64;
 }
 
-trait NodeCollection {
-    fn max_entry_height(&self) -> i64;
-    fn max_height(&self) -> i64;
-    fn max_height_below_entry(&self) -> i64;
-    fn max_width(&self) -> i64;
-    fn total_width(&self) -> i64;
-    fn total_height(&self) -> i64;
-    fn running_x<'a>(
-        &'a self,
-        spacing: i64,
-    ) -> Box<dyn Iterator<Item = (&'a Box<dyn Node>, i64)> + 'a>;
-}
-
-impl NodeCollection for Vec<Box<dyn Node>> {
-    fn running_x<'a>(
-        &'a self,
-        spacing: i64,
-    ) -> Box<dyn Iterator<Item = (&'a Box<dyn Node>, i64)> + 'a> {
-        let mut x = 0;
-        let it = self.iter().map(move |child| {
-            let z = x;
-            x += child.width() + spacing;
-            (child, z)
-        });
-        Box::new(it)
-    }
-
-    fn max_height_below_entry(&self) -> i64 {
-        self.iter()
-            .map(Node::height_below_entry)
+impl<I, N> NodeCollection for I
+where
+    I: IntoIterator<Item = N>,
+    N: Node,
+{
+    fn max_height_below_entry(self) -> i64 {
+        self.into_iter()
+            .map(|n| n.height_below_entry())
             .max()
             .unwrap_or_default()
     }
 
-    fn max_entry_height(&self) -> i64 {
-        self.iter()
-            .map(Node::entry_height)
+    fn max_entry_height(self) -> i64 {
+        self.into_iter()
+            .map(|n| n.entry_height())
             .max()
             .unwrap_or_default()
     }
 
-    fn max_height(&self) -> i64 {
-        self.iter().map(Node::height).max().unwrap_or_default()
+    fn max_height(self) -> i64 {
+        self.into_iter()
+            .map(|n| n.height())
+            .max()
+            .unwrap_or_default()
     }
 
-    fn max_width(&self) -> i64 {
-        self.iter().map(Node::width).max().unwrap_or_default()
+    fn max_width(self) -> i64 {
+        self.into_iter()
+            .map(|n| n.width())
+            .max()
+            .unwrap_or_default()
     }
 
-    fn total_width(&self) -> i64 {
-        self.iter().map(Node::width).sum()
+    fn total_width(self) -> i64 {
+        self.into_iter().map(|n| n.width()).sum()
     }
 
-    fn total_height(&self) -> i64 {
-        self.iter().map(Node::height).sum()
+    fn total_height(self) -> i64 {
+        self.into_iter().map(|n| n.height()).sum()
     }
 }
 
+/// Possible targets for `Link`.
 #[derive(Debug)]
 pub enum LinkTarget {
     Blank,
@@ -396,12 +364,12 @@ impl Node for VerticalGrid {
     }
 
     fn height(&self) -> i64 {
-        self.children.total_height()
+        self.children.iter().total_height()
             + ((cmp::max(1, self.children.len() as i64) - 1) * self.spacing)
     }
 
     fn width(&self) -> i64 {
-        self.children.max_width()
+        self.children.iter().max_width()
     }
 
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
@@ -462,11 +430,12 @@ impl Node for HorizontalGrid {
     }
 
     fn height(&self) -> i64 {
-        self.children.max_height()
+        self.children.iter().max_height()
     }
 
     fn width(&self) -> i64 {
-        self.children.total_width() + ((cmp::max(1, self.children.len() as i64) - 1) * self.spacing)
+        self.children.iter().total_width()
+            + ((cmp::max(1, self.children.len() as i64) - 1) * self.spacing)
     }
 
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
@@ -521,37 +490,39 @@ impl Default for Sequence {
 
 impl Node for Sequence {
     fn entry_height(&self) -> i64 {
-        self.children.max_entry_height()
+        self.children.iter().max_entry_height()
     }
 
     fn height(&self) -> i64 {
-        self.children.max_entry_height() + self.children.max_height_below_entry()
+        self.children.iter().max_entry_height() + self.children.iter().max_height_below_entry()
     }
 
     fn width(&self) -> i64 {
         let l = self.children.len();
         if l > 1 {
-            self.children.total_width() + (l - 1) as i64 * self.spacing
+            self.children.iter().total_width() + (l - 1) as i64 * self.spacing
         } else {
-            self.children.total_width()
+            self.children.iter().total_width()
         }
     }
 
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
         let mut g = svg::Element::new("g").set("class", "sequence");
-        for (child, offset) in self.children.running_x(self.spacing) {
+        let mut running_x = 0;
+        for child in &self.children {
             g.push(child.draw(
-                x + offset,
+                x + running_x,
                 y + self.entry_height() - child.entry_height(),
                 h_dir,
             ));
+            running_x += child.width() + self.spacing;
         }
 
         let mut running_x = x;
         for child in self.children.iter().rev().skip(1).rev() {
             g.push(
                 svg::PathData::new(h_dir)
-                    .move_to(running_x + child.width(), y + self.exit_height())
+                    .move_to(running_x + child.width(), y + self.entry_height())
                     .horizontal(self.spacing)
                     .into_path(),
             );
@@ -933,20 +904,23 @@ impl ::std::iter::FromIterator<Box<dyn Node>> for Stack {
 
 impl Node for Stack {
     fn entry_height(&self) -> i64 {
-        self.children.get(0).entry_height()
+        self.children
+            .get(0)
+            .map(|n| n.entry_height())
+            .unwrap_or_default()
     }
 
     fn height(&self) -> i64 {
         self.children
             .iter()
             .zip(self.children.iter().skip(1))
-            .map(|(c, nc)| self.padded_height(&c, &nc))
+            .map(|(c, nc)| self.padded_height(&**c, &**nc))
             .sum::<i64>()
-            + self.children.last().height()
+            + self.children.last().map(|n| n.height()).unwrap_or_default()
     }
 
     fn width(&self) -> i64 {
-        let l = self.left_padding() + self.children.max_width() + self.right_padding();
+        let l = self.left_padding() + self.children.iter().max_width() + self.right_padding();
         // If the final upwards connector touches the downward ones, add some space
         if self
             .children
@@ -954,7 +928,7 @@ impl Node for Stack {
             .rev()
             .skip(1)
             .rev()
-            .any(|c| c.width() >= self.children.last().width())
+            .any(|c| c.width() >= self.children.last().map(|n| n.width()).unwrap_or_default())
         {
             l + ARC_RADIUS
         } else {
@@ -977,7 +951,7 @@ impl Node for Stack {
                 svg::PathData::new(h_dir)
                     .move_to(
                         x + self.left_padding() + child.width(),
-                        running_y + child.exit_height(),
+                        running_y + child.entry_height(),
                     )
                     .arc(ARC_RADIUS, svg::Arc::WestToSouth)
                     .vertical(cmp::max(
@@ -997,7 +971,7 @@ impl Node for Stack {
                     .into_path(),
             );
             g.push(child.draw(x + self.left_padding(), running_y, h_dir));
-            running_y += self.padded_height(&child, &next_child);
+            running_y += self.padded_height(&**child, &**next_child);
         }
 
         // Draw the last (possibly only) child and its connectors
@@ -1007,7 +981,7 @@ impl Node for Stack {
                     svg::PathData::new(h_dir)
                         .move_to(
                             x + self.left_padding() + child.width(),
-                            running_y + child.exit_height(),
+                            running_y + child.entry_height(),
                         )
                         .horizontal(
                             self.width() - child.width() - self.left_padding() - ARC_RADIUS * 2,
@@ -1017,7 +991,7 @@ impl Node for Stack {
                             -self.height()
                                 + child.height_below_entry()
                                 + ARC_RADIUS * 2
-                                + self.exit_height(),
+                                + self.entry_height(),
                         )
                         .arc(ARC_RADIUS, svg::Arc::SouthToEast)
                         .into_path(),
@@ -1093,14 +1067,17 @@ impl Default for Choice {
 
 impl Node for Choice {
     fn entry_height(&self) -> i64 {
-        self.children.get(0).entry_height()
+        self.children
+            .get(0)
+            .map(|n| n.entry_height())
+            .unwrap_or_default()
     }
 
     fn height(&self) -> i64 {
         if self.children.is_empty() {
             0
         } else if self.children.len() == 1 {
-            self.children.total_height()
+            self.children.iter().total_height()
         } else {
             self.entry_height()
                 + cmp::max(
@@ -1111,7 +1088,7 @@ impl Node for Choice {
                     .children
                     .iter()
                     .skip(1)
-                    .map(|c| self.padded_height(&c))
+                    .map(|c| self.padded_height(&**c))
                     .sum::<i64>()
                 - self.spacing
         }
@@ -1119,9 +1096,9 @@ impl Node for Choice {
 
     fn width(&self) -> i64 {
         if self.children.len() > 1 {
-            self.inner_padding() + self.children.max_width() + self.inner_padding()
+            self.inner_padding() + self.children.iter().max_width() + self.inner_padding()
         } else {
-            self.children.max_width()
+            self.children.iter().max_width()
         }
     }
 
@@ -1133,8 +1110,15 @@ impl Node for Choice {
             svg::PathData::new(h_dir)
                 .move_to(x, y + self.entry_height())
                 .horizontal(self.inner_padding())
-                .move_rel(self.children.get(0).width(), 0)
-                .horizontal(self.width() - self.inner_padding() - self.children.get(0).width())
+                .move_rel(
+                    self.children.get(0).map(|n| n.width()).unwrap_or_default(),
+                    0,
+                )
+                .horizontal(
+                    self.width()
+                        - self.inner_padding()
+                        - self.children.get(0).map(|n| n.width()).unwrap_or_default(),
+                )
                 .into_path(),
         );
 
@@ -1164,7 +1148,6 @@ impl Node for Choice {
             );
 
             // The downward connectors, drawn individually
-            //let mut running_y = y + self.padded_height(&self.children.get(0));
             let mut running_y = y
                 + self.entry_height()
                 + cmp::max(
@@ -1172,7 +1155,7 @@ impl Node for Choice {
                     self.spacing + self.children[0].height_below_entry(),
                 );
             for child in self.children.iter().skip(1).rev().skip(1).rev() {
-                let z = self.padded_height(&child);
+                let z = self.padded_height(&**child);
                 let zz = cmp::max(0, child.entry_height() - ARC_RADIUS);
                 let z = z - zz;
                 g.push(
@@ -1200,7 +1183,7 @@ impl Node for Choice {
                         .vertical(cmp::max(0, child.entry_height() - ARC_RADIUS))
                         .arc(ARC_RADIUS, svg::Arc::NorthToEast)
                         .move_rel(child.width(), 0)
-                        .horizontal(self.children.max_width() - child.width())
+                        .horizontal(self.children.iter().max_width() - child.width())
                         .arc(ARC_RADIUS, svg::Arc::WestToNorth)
                         .vertical(-cmp::max(0, child.entry_height() - ARC_RADIUS))
                         .into_path(),
@@ -1210,7 +1193,7 @@ impl Node for Choice {
                     running_y + cmp::max(0, ARC_RADIUS - child.entry_height()),
                     h_dir,
                 ));
-                running_y += self.padded_height(&child);
+                running_y += self.padded_height(&**child);
             }
         }
 
@@ -1636,5 +1619,20 @@ impl<T: Node> Node for Diagram<T> {
 impl<T: Node> fmt::Display for Diagram<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "{}", self.draw(0, 0, HDir::LTR))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn debug_impl() {
+        let s = Sequence::new(vec![Box::new(SimpleStart), Box::new(SimpleEnd)]);
+        assert_eq!("Sequence { children: [Node { entry_height: 5, height: 10, width: 15 }, Node { entry_height: 5, height: 10, width: 15 }], spacing: 10 }", format!("{:?}", &s));
+        assert_eq!(
+            "Node { entry_height: 5, height: 10, width: 40 }",
+            format!("{:?}", &s as &dyn Node)
+        );
     }
 }
