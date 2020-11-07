@@ -52,6 +52,9 @@
 //! println!("<html>{}</html>", dia);
 //! ```
 //!
+
+#![cfg_attr(feature = "nightly", feature(external_doc))]
+
 use std::{
     cmp,
     collections::{self, HashMap},
@@ -61,6 +64,11 @@ use std::{
 pub mod notactuallysvg;
 pub use crate::notactuallysvg as svg;
 use crate::svg::HDir;
+
+#[cfg(feature = "nightly")]
+#[doc(include = "../README.md")]
+#[allow(dead_code)]
+type _READMETEST = ();
 
 /// Used as a form of scale throughout geometry calculations. Smaller values result in more compact
 /// diagrams.

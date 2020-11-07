@@ -18,7 +18,7 @@ Using this library, diagrams are created using primitives which implement `Node`
 use railroad::*;
 
 let mut seq = Sequence::default();
-seq.push(Box::new(Start))
+seq.push(Box::new(Start) as Box<dyn Node>)
    .push(Box::new(Terminal::new("BEGIN".to_owned())))
    .push(Box::new(NonTerminal::new("syntax".to_owned())))
    .push(Box::new(End));

@@ -12,6 +12,7 @@ edition = "2018"
 
 [features]
 visual-debug = []
+nightly = []
 
 [dependencies]
 htmlescape = "0.3"
