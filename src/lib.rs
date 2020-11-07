@@ -1,6 +1,6 @@
 // MIT License
 //
-// Copyright (c) 2018, 2019 Lukas Lueg (lukas.lueg@gmail.com)
+// Copyright (c) 2018-2020 Lukas Lueg (lukas.lueg@gmail.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -35,7 +35,7 @@
 //! use railroad::*;
 //!
 //! // This diagram will be a (horizontal) sequence of simple elements
-//! let mut seq = Sequence::default();
+//! let mut seq: Sequence<Box<dyn Node>> = Sequence::default();
 //! seq.push(Box::new(Start))
 //!    .push(Box::new(Terminal::new("BEGIN".to_owned())))
 //!    .push(Box::new(NonTerminal::new("syntax".to_owned())))
@@ -52,7 +52,11 @@
 //! println!("<html>{}</html>", dia);
 //! ```
 //!
-use std::{cmp, collections, fmt, io};
+use std::{
+    cmp,
+    collections::{self, HashMap},
+    fmt, io, iter,
+};
 
 pub mod notactuallysvg;
 pub use crate::notactuallysvg as svg;
@@ -249,32 +253,35 @@ where
 }
 
 /// Possible targets for `Link`.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum LinkTarget {
     Blank,
     Parent,
     Top,
 }
 
-/// Wraps another primitive, making it a clickable link to some URI.
-#[derive(Debug)]
-pub struct Link<I: Node> {
-    inner: I,
-    uri: String,
-    target: Option<LinkTarget>,
-    attributes: collections::HashMap<String, String>,
+impl Default for LinkTarget {
+    fn default() -> Self {
+        LinkTarget::Blank
+    }
 }
 
-impl<I> Link<I>
-where
-    I: Node,
-{
-    pub fn new(inner: I, uri: String) -> Self {
+/// Wraps another primitive, making it a clickable link to some URI.
+#[derive(Debug, Clone)]
+pub struct Link<N> {
+    inner: N,
+    uri: String,
+    target: Option<LinkTarget>,
+    attributes: HashMap<String, String>,
+}
+
+impl<N> Link<N> {
+    pub fn new(inner: N, uri: String) -> Self {
         let mut l = Self {
             inner,
             uri,
             target: None,
-            attributes: collections::HashMap::new(),
+            attributes: HashMap::default(),
         };
         l.attributes.insert("class".to_owned(), "link".to_owned());
         l
@@ -291,7 +298,10 @@ where
     }
 }
 
-impl<I: Node> Node for Link<I> {
+impl<N> Node for Link<N>
+where
+    N: Node,
+{
     fn entry_height(&self) -> i64 {
         self.inner.entry_height()
     }
@@ -305,7 +315,7 @@ impl<I: Node> Node for Link<I> {
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
         let mut a = svg::Element::new("a")
             .debug("Link", x, y, self)
-            .set("xlink:href", self.uri.clone());
+            .set("xlink:href", &self.uri);
         a = match self.target {
             Some(LinkTarget::Blank) => a.set("target", "_blank"),
             Some(LinkTarget::Parent) => a.set("target", "_parent"),
@@ -318,31 +328,32 @@ impl<I: Node> Node for Link<I> {
 }
 
 /// A vertical group of unconnected elements.
-#[derive(Debug)]
-pub struct VerticalGrid {
-    children: Vec<Box<dyn Node>>,
+#[derive(Debug, Clone)]
+pub struct VerticalGrid<N> {
+    children: Vec<N>,
     spacing: i64,
-    attributes: collections::HashMap<String, String>,
+    attributes: HashMap<String, String>,
 }
 
-impl VerticalGrid {
-    pub fn new(children: Vec<Box<dyn Node>>) -> Self {
+impl<N> VerticalGrid<N> {
+    #[must_use]
+    pub fn new(children: Vec<N>) -> Self {
         let mut v = Self {
             children,
-            spacing: ARC_RADIUS,
-            attributes: collections::HashMap::new(),
+            ..Self::default()
         };
         v.attributes
             .insert("class".to_owned(), "verticalgrid".to_owned());
         v
     }
 
-    pub fn push(&mut self, child: Box<dyn Node>) -> &mut Self {
+    pub fn push(&mut self, child: N) -> &mut Self {
         self.children.push(child);
         self
     }
 
-    pub fn into_inner(self) -> Vec<Box<dyn Node>> {
+    #[must_use]
+    pub fn into_inner(self) -> Vec<N> {
         self.children
     }
 
@@ -352,13 +363,23 @@ impl VerticalGrid {
     }
 }
 
-impl ::std::iter::FromIterator<Box<dyn Node>> for VerticalGrid {
-    fn from_iter<T: IntoIterator<Item = Box<dyn Node>>>(iter: T) -> Self {
+impl<N> Default for VerticalGrid<N> {
+    fn default() -> Self {
+        Self {
+            children: Vec::default(),
+            spacing: ARC_RADIUS,
+            attributes: HashMap::default(),
+        }
+    }
+}
+
+impl<N> iter::FromIterator<N> for VerticalGrid<N> {
+    fn from_iter<T: IntoIterator<Item = N>>(iter: T) -> Self {
         Self::new(iter.into_iter().collect())
     }
 }
 
-impl Node for VerticalGrid {
+impl<N: Node> Node for VerticalGrid<N> {
     fn entry_height(&self) -> i64 {
         0
     }
@@ -384,31 +405,32 @@ impl Node for VerticalGrid {
 }
 
 /// A horizontal group of unconnected elements.
-#[derive(Debug)]
-pub struct HorizontalGrid {
-    children: Vec<Box<dyn Node>>,
+#[derive(Debug, Clone)]
+pub struct HorizontalGrid<N> {
+    children: Vec<N>,
     spacing: i64,
-    attributes: collections::HashMap<String, String>,
+    attributes: HashMap<String, String>,
 }
 
-impl HorizontalGrid {
-    pub fn new(children: Vec<Box<dyn Node>>) -> Self {
+impl<N> HorizontalGrid<N> {
+    #[must_use]
+    pub fn new(children: Vec<N>) -> Self {
         let mut h = Self {
             children,
-            spacing: ARC_RADIUS,
-            attributes: collections::HashMap::new(),
+            ..Self::default()
         };
         h.attributes
             .insert("class".to_owned(), "horizontalgrid".to_owned());
         h
     }
 
-    pub fn push(&mut self, child: Box<dyn Node>) -> &mut Self {
+    pub fn push(&mut self, child: N) -> &mut Self {
         self.children.push(child);
         self
     }
 
-    pub fn into_inner(self) -> Vec<Box<dyn Node>> {
+    #[must_use]
+    pub fn into_inner(self) -> Vec<N> {
         self.children
     }
 
@@ -418,13 +440,26 @@ impl HorizontalGrid {
     }
 }
 
-impl ::std::iter::FromIterator<Box<dyn Node>> for HorizontalGrid {
-    fn from_iter<T: IntoIterator<Item = Box<dyn Node>>>(iter: T) -> Self {
+impl<N> Default for HorizontalGrid<N> {
+    fn default() -> Self {
+        Self {
+            children: Vec::default(),
+            spacing: ARC_RADIUS,
+            attributes: HashMap::default(),
+        }
+    }
+}
+
+impl<N> iter::FromIterator<N> for HorizontalGrid<N> {
+    fn from_iter<T: IntoIterator<Item = N>>(iter: T) -> Self {
         Self::new(iter.into_iter().collect())
     }
 }
 
-impl Node for HorizontalGrid {
+impl<N> Node for HorizontalGrid<N>
+where
+    N: Node,
+{
     fn entry_height(&self) -> i64 {
         0
     }
@@ -452,43 +487,51 @@ impl Node for HorizontalGrid {
 /// A horizontal group of elements, connected from left to right.
 ///
 /// Also see `Stack` for a vertical group of elements.
-#[derive(Debug)]
-pub struct Sequence {
-    children: Vec<Box<dyn Node>>,
+#[derive(Debug, Clone)]
+pub struct Sequence<N> {
+    children: Vec<N>,
     spacing: i64,
 }
 
-impl Sequence {
-    pub fn new(children: Vec<Box<dyn Node>>) -> Self {
+impl<N> Sequence<N> {
+    #[must_use]
+    pub fn new(children: Vec<N>) -> Self {
         Self {
             children,
-            spacing: 10,
+            ..Self::default()
         }
     }
 
-    pub fn push(&mut self, child: Box<dyn Node>) -> &mut Self {
+    pub fn push(&mut self, child: N) -> &mut Self {
         self.children.push(child);
         self
     }
 
-    pub fn into_inner(self) -> Vec<Box<dyn Node>> {
+    #[must_use]
+    pub fn into_inner(self) -> Vec<N> {
         self.children
     }
 }
 
-impl ::std::iter::FromIterator<Box<dyn Node>> for Sequence {
-    fn from_iter<T: IntoIterator<Item = Box<dyn Node>>>(iter: T) -> Self {
+impl<N> Default for Sequence<N> {
+    fn default() -> Self {
+        Self {
+            children: Vec::new(),
+            spacing: 10,
+        }
+    }
+}
+
+impl<N> iter::FromIterator<N> for Sequence<N> {
+    fn from_iter<T: IntoIterator<Item = N>>(iter: T) -> Self {
         Self::new(iter.into_iter().collect())
     }
 }
 
-impl Default for Sequence {
-    fn default() -> Self {
-        Self::new(vec![])
-    }
-}
-
-impl Node for Sequence {
+impl<N> Node for Sequence<N>
+where
+    N: Node,
+{
     fn entry_height(&self) -> i64 {
         self.children.iter().max_entry_height()
     }
@@ -533,7 +576,7 @@ impl Node for Sequence {
 }
 
 /// A symbol indicating the logical end of a syntax-diagram via two vertical bars.
-#[derive(Debug)]
+#[derive(Debug, Clone, Default)]
 pub struct End;
 
 impl Node for End {
@@ -561,7 +604,7 @@ impl Node for End {
 }
 
 /// A symbol indicating the logical start of a syntax-diagram via a circle
-#[derive(Debug)]
+#[derive(Debug, Clone, Default)]
 pub struct SimpleStart;
 
 impl Node for SimpleStart {
@@ -590,7 +633,7 @@ impl Node for SimpleStart {
 }
 
 /// A symbol indicating the logical end of a syntax-diagram via a circle
-#[derive(Debug)]
+#[derive(Debug, Clone, Default)]
 pub struct SimpleEnd;
 
 impl Node for SimpleEnd {
@@ -618,7 +661,7 @@ impl Node for SimpleEnd {
 }
 
 /// A symbol indicating the logical start of a syntax-diagram via two vertical bars.
-#[derive(Debug)]
+#[derive(Debug, Clone, Default)]
 pub struct Start;
 
 impl Node for Start {
@@ -646,17 +689,18 @@ impl Node for Start {
 }
 
 /// A `Terminal`-symbol, drawn as a rectangle with rounded corners.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Terminal {
     label: String,
-    attributes: collections::HashMap<String, String>,
+    attributes: HashMap<String, String>,
 }
 
 impl Terminal {
+    #[must_use]
     pub fn new(label: String) -> Self {
         let mut t = Self {
             label,
-            attributes: collections::HashMap::new(),
+            attributes: HashMap::default(),
         };
         t.attributes
             .insert("class".to_owned(), "terminal".to_owned());
@@ -701,17 +745,18 @@ impl Node for Terminal {
 }
 
 /// A `NonTerminal`, drawn as a rectangle.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NonTerminal {
     label: String,
-    attributes: collections::HashMap<String, String>,
+    attributes: HashMap<String, String>,
 }
 
 impl NonTerminal {
+    #[must_use]
     pub fn new(label: String) -> Self {
         let mut nt = Self {
             label,
-            attributes: collections::HashMap::new(),
+            attributes: HashMap::default(),
         };
         nt.attributes
             .insert("class".to_owned(), "nonterminal".to_owned());
@@ -758,24 +803,24 @@ impl Node for NonTerminal {
 /// Wraps another element to make that element logically optional.
 ///
 /// Draws a separate path above, which skips the given element.
-#[derive(Debug)]
-pub struct Optional<T: Node> {
-    inner: T,
-    attributes: collections::HashMap<String, String>,
+#[derive(Debug, Clone, Default)]
+pub struct Optional<N> {
+    inner: N,
+    attributes: HashMap<String, String>,
 }
 
-impl<T: Node> Optional<T> {
-    pub fn new(inner: T) -> Self {
+impl<N> Optional<N> {
+    pub fn new(inner: N) -> Self {
         let mut o = Self {
             inner,
-            attributes: collections::HashMap::new(),
+            attributes: HashMap::default(),
         };
         o.attributes
             .insert("class".to_owned(), "optional".to_owned());
         o
     }
 
-    pub fn into_inner(self) -> T {
+    pub fn into_inner(self) -> N {
         self.inner
     }
 
@@ -785,13 +830,10 @@ impl<T: Node> Optional<T> {
     }
 }
 
-impl<T: Node> AsRef<T> for Optional<T> {
-    fn as_ref(&self) -> &T {
-        &self.inner
-    }
-}
-
-impl<T: Node> Node for Optional<T> {
+impl<N> Node for Optional<N>
+where
+    N: Node,
+{
     fn entry_height(&self) -> i64 {
         ARC_RADIUS + cmp::max(ARC_RADIUS, self.inner.entry_height())
     }
@@ -836,34 +878,32 @@ impl<T: Node> Node for Optional<T> {
 /// A vertical group of elements, drawn from top to bottom.
 ///
 /// Also see `Sequence` for a horizontal group of elements.
-#[derive(Debug)]
-pub struct Stack {
-    children: Vec<Box<dyn Node>>,
+#[derive(Debug, Clone)]
+pub struct Stack<N> {
+    children: Vec<N>,
     left_padding: i64,
     right_padding: i64,
     spacing: i64,
-    attributes: collections::HashMap<String, String>,
+    attributes: HashMap<String, String>,
 }
 
-impl Stack {
-    pub fn new(children: Vec<Box<dyn Node>>) -> Self {
+impl<N> Stack<N> {
+    #[must_use]
+    pub fn new(children: Vec<N>) -> Self {
         let mut s = Self {
             children,
-            left_padding: 10,
-            right_padding: 10,
-            spacing: ARC_RADIUS,
-            attributes: collections::HashMap::new(),
+            ..Self::default()
         };
         s.attributes.insert("class".to_owned(), "stack".to_owned());
         s
     }
 
-    pub fn push(&mut self, child: impl Node + 'static) -> &mut Self {
-        self.children.push(Box::new(child));
-        self
+    pub fn push(&mut self, child: N) {
+        self.children.push(child);
     }
 
-    pub fn into_inner(self) -> Vec<Box<dyn Node>> {
+    #[must_use]
+    pub fn into_inner(self) -> Vec<N> {
         self.children
     }
 
@@ -896,17 +936,32 @@ impl Stack {
     }
 }
 
-impl ::std::iter::FromIterator<Box<dyn Node>> for Stack {
-    fn from_iter<T: IntoIterator<Item = Box<dyn Node>>>(iter: T) -> Self {
+impl<N> Default for Stack<N> {
+    fn default() -> Self {
+        Self {
+            children: Vec::default(),
+            left_padding: 10,
+            right_padding: 10,
+            spacing: ARC_RADIUS,
+            attributes: HashMap::default(),
+        }
+    }
+}
+
+impl<N> iter::FromIterator<N> for Stack<N> {
+    fn from_iter<T: IntoIterator<Item = N>>(iter: T) -> Self {
         Self::new(iter.into_iter().collect())
     }
 }
 
-impl Node for Stack {
+impl<N> Node for Stack<N>
+where
+    N: Node,
+{
     fn entry_height(&self) -> i64 {
         self.children
             .get(0)
-            .map(|n| n.entry_height())
+            .map(Node::entry_height)
             .unwrap_or_default()
     }
 
@@ -914,9 +969,9 @@ impl Node for Stack {
         self.children
             .iter()
             .zip(self.children.iter().skip(1))
-            .map(|(c, nc)| self.padded_height(&**c, &**nc))
+            .map(|(c, nc)| self.padded_height(c, nc))
             .sum::<i64>()
-            + self.children.last().map(|n| n.height()).unwrap_or_default()
+            + self.children.last().map(Node::height).unwrap_or_default()
     }
 
     fn width(&self) -> i64 {
@@ -928,7 +983,7 @@ impl Node for Stack {
             .rev()
             .skip(1)
             .rev()
-            .any(|c| c.width() >= self.children.last().map(|n| n.width()).unwrap_or_default())
+            .any(|c| c.width() >= self.children.last().map(Node::width).unwrap_or_default())
         {
             l + ARC_RADIUS
         } else {
@@ -971,7 +1026,7 @@ impl Node for Stack {
                     .into_path(),
             );
             g.push(child.draw(x + self.left_padding(), running_y, h_dir));
-            running_y += self.padded_height(&**child, &**next_child);
+            running_y += self.padded_height(child, next_child);
         }
 
         // Draw the last (possibly only) child and its connectors
@@ -1008,38 +1063,36 @@ impl Node for Stack {
 ///
 /// Use `Empty` as one of the elements to make the entire `Choice` optional (a shorthand for
 /// `Optional(Choice(..))`.
-#[derive(Debug)]
-pub struct Choice {
-    children: Vec<Box<dyn Node>>,
+#[derive(Debug, Clone)]
+pub struct Choice<N> {
+    children: Vec<N>,
     spacing: i64,
-    attributes: collections::HashMap<String, String>,
+    attributes: HashMap<String, String>,
 }
 
-impl ::std::iter::FromIterator<Box<dyn Node>> for Choice {
-    fn from_iter<T: IntoIterator<Item = Box<dyn Node>>>(iter: T) -> Self {
-        Self::new(iter.into_iter().collect())
-    }
-}
-
-impl Choice {
-    pub fn new(children: Vec<Box<dyn Node>>) -> Self {
+impl<N> Choice<N> {
+    #[must_use]
+    pub fn new(children: Vec<N>) -> Self {
         let mut c = Self {
             children,
-            spacing: 10,
-            attributes: collections::HashMap::new(),
+            ..Self::default()
         };
         c.attributes.insert("class".to_owned(), "choice".to_owned());
         c
     }
 
-    pub fn push(&mut self, child: impl Node + 'static) -> &mut Self {
-        self.children.push(Box::new(child));
-        self
+    pub fn push(&mut self, child: N) {
+        self.children.push(child);
     }
 
     /// Access an attribute on the main SVG-element that will be drawn.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
+    }
+
+    #[must_use]
+    pub fn into_inner(self) -> Vec<N> {
+        self.children
     }
 
     fn inner_padding(&self) -> i64 {
@@ -1050,26 +1103,35 @@ impl Choice {
         }
     }
 
-    pub fn into_inner(self) -> Vec<Box<dyn Node>> {
-        self.children
-    }
-
     fn padded_height(&self, child: &dyn Node) -> i64 {
         cmp::max(ARC_RADIUS, child.entry_height()) + child.height_below_entry() + self.spacing
     }
 }
 
-impl Default for Choice {
-    fn default() -> Self {
-        Self::new(vec![])
+impl<N> iter::FromIterator<N> for Choice<N> {
+    fn from_iter<T: IntoIterator<Item = N>>(iter: T) -> Self {
+        Self::new(iter.into_iter().collect())
     }
 }
 
-impl Node for Choice {
+impl<N> Default for Choice<N> {
+    fn default() -> Self {
+        Self {
+            children: Vec::default(),
+            spacing: 10,
+            attributes: HashMap::default(),
+        }
+    }
+}
+
+impl<N> Node for Choice<N>
+where
+    N: Node,
+{
     fn entry_height(&self) -> i64 {
         self.children
             .get(0)
-            .map(|n| n.entry_height())
+            .map(Node::entry_height)
             .unwrap_or_default()
     }
 
@@ -1088,7 +1150,7 @@ impl Node for Choice {
                     .children
                     .iter()
                     .skip(1)
-                    .map(|c| self.padded_height(&**c))
+                    .map(|c| self.padded_height(c))
                     .sum::<i64>()
                 - self.spacing
         }
@@ -1110,14 +1172,11 @@ impl Node for Choice {
             svg::PathData::new(h_dir)
                 .move_to(x, y + self.entry_height())
                 .horizontal(self.inner_padding())
-                .move_rel(
-                    self.children.get(0).map(|n| n.width()).unwrap_or_default(),
-                    0,
-                )
+                .move_rel(self.children.get(0).map(Node::width).unwrap_or_default(), 0)
                 .horizontal(
                     self.width()
                         - self.inner_padding()
-                        - self.children.get(0).map(|n| n.width()).unwrap_or_default(),
+                        - self.children.get(0).map(Node::width).unwrap_or_default(),
                 )
                 .into_path(),
         );
@@ -1155,7 +1214,7 @@ impl Node for Choice {
                     self.spacing + self.children[0].height_below_entry(),
                 );
             for child in self.children.iter().skip(1).rev().skip(1).rev() {
-                let z = self.padded_height(&**child);
+                let z = self.padded_height(child);
                 let zz = cmp::max(0, child.entry_height() - ARC_RADIUS);
                 let z = z - zz;
                 g.push(
@@ -1193,7 +1252,7 @@ impl Node for Choice {
                     running_y + cmp::max(0, ARC_RADIUS - child.entry_height()),
                     h_dir,
                 ));
-                running_y += self.padded_height(&**child);
+                running_y += self.padded_height(child);
             }
         }
 
@@ -1202,25 +1261,21 @@ impl Node for Choice {
 }
 
 /// Wraps one element by providing a backwards-path through another element.
-#[derive(Debug)]
-pub struct Repeat<I: Node, R: Node> {
+#[derive(Debug, Clone)]
+pub struct Repeat<I, R> {
     inner: I,
     repeat: R,
     spacing: i64,
-    attributes: collections::HashMap<String, String>,
+    attributes: HashMap<String, String>,
 }
 
-impl<I, R> Repeat<I, R>
-where
-    I: Node,
-    R: Node,
-{
+impl<I, R> Repeat<I, R> {
     pub fn new(inner: I, repeat: R) -> Self {
         let mut r = Self {
             inner,
             repeat,
             spacing: 10,
-            attributes: collections::HashMap::new(),
+            attributes: HashMap::default(),
         };
         r.attributes.insert("class".to_owned(), "repeat".to_owned());
         r
@@ -1230,12 +1285,33 @@ where
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
+}
 
+impl<I, R> Repeat<I, R>
+where
+    I: Node,
+    R: Node,
+{
     fn height_between_entries(&self) -> i64 {
         cmp::max(
             ARC_RADIUS * 2,
             self.inner.height_below_entry() + self.spacing + self.repeat.entry_height(),
         )
+    }
+}
+
+impl<I, R> Default for Repeat<I, R>
+where
+    I: Default,
+    R: Default,
+{
+    fn default() -> Self {
+        Self {
+            inner: Default::default(),
+            repeat: Default::default(),
+            spacing: 10,
+            attributes: HashMap::default(),
+        }
     }
 }
 
@@ -1296,17 +1372,18 @@ pub struct Debug {
     entry_height: i64,
     height: i64,
     width: i64,
-    attributes: collections::HashMap<String, String>,
+    attributes: HashMap<String, String>,
 }
 
 impl Debug {
+    #[must_use]
     pub fn new(entry_height: i64, height: i64, width: i64) -> Self {
         assert!(entry_height < height);
         let mut d = Self {
             entry_height,
             height,
             width,
-            attributes: collections::HashMap::new(),
+            attributes: HashMap::default(),
         };
 
         d.attributes.insert("class".to_owned(), "debug".to_owned());
@@ -1346,7 +1423,7 @@ impl Node for Debug {
 /// is blank, a shorthand for an `Optional(Choice)`), `Repeat` (if there are
 /// zero-or-more repetitions or if there is no joining element), or `LabeledBox`
 /// (if the label should be empty).
-#[derive(Debug)]
+#[derive(Debug, Clone, Default)]
 pub struct Empty;
 
 impl Node for Empty {
@@ -1368,30 +1445,30 @@ impl Node for Empty {
 /// A box drawn around the given element and a label placed inside the box, above the element.
 ///
 /// You may want to use `Comment` or `Empty` for the label.
-#[derive(Debug)]
-pub struct LabeledBox<T: Node, U: Node> {
+#[derive(Debug, Clone)]
+pub struct LabeledBox<T, U> {
     inner: T,
     label: U,
     spacing: i64,
     padding: i64,
-    attributes: collections::HashMap<String, String>,
+    attributes: HashMap<String, String>,
 }
 
-impl<T: Node> LabeledBox<T, Empty> {
+impl<T> LabeledBox<T, Empty> {
     /// Construct a box with a label set to `Empty`
     pub fn without_label(inner: T) -> Self {
         Self::new(inner, Empty)
     }
 }
 
-impl<T: Node, U: Node> LabeledBox<T, U> {
+impl<T, U> LabeledBox<T, U> {
     pub fn new(inner: T, label: U) -> Self {
         let mut l = Self {
             inner,
             label,
             spacing: 8,
             padding: 8,
-            attributes: collections::HashMap::new(),
+            attributes: HashMap::default(),
         };
         l.attributes
             .insert("class".to_owned(), "labeledbox".to_owned());
@@ -1402,7 +1479,29 @@ impl<T: Node, U: Node> LabeledBox<T, U> {
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
+}
 
+impl<T, U> Default for LabeledBox<T, U>
+where
+    T: Default,
+    U: Default,
+{
+    fn default() -> Self {
+        Self {
+            inner: Default::default(),
+            label: Default::default(),
+            spacing: 8,
+            padding: 8,
+            attributes: HashMap::default(),
+        }
+    }
+}
+
+impl<T, U> LabeledBox<T, U>
+where
+    T: Node,
+    U: Node,
+{
     fn spacing(&self) -> i64 {
         if self.label.height() > 0 {
             self.spacing
@@ -1420,7 +1519,11 @@ impl<T: Node, U: Node> LabeledBox<T, U> {
     }
 }
 
-impl<T: Node, U: Node> Node for LabeledBox<T, U> {
+impl<T, U> Node for LabeledBox<T, U>
+where
+    T: Node,
+    U: Node,
+{
     fn entry_height(&self) -> i64 {
         self.padding() + self.label.height() + self.spacing() + self.inner.entry_height()
     }
@@ -1465,17 +1568,18 @@ impl<T: Node, U: Node> Node for LabeledBox<T, U> {
 }
 
 /// A label / verbatim text, drawn in-line
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Comment {
     text: String,
-    attributes: collections::HashMap<String, String>,
+    attributes: HashMap<String, String>,
 }
 
 impl Comment {
+    #[must_use]
     pub fn new(text: String) -> Self {
         let mut c = Self {
             text,
-            attributes: collections::HashMap::new(),
+            attributes: HashMap::default(),
         };
         c.attributes
             .insert("class".to_owned(), "comment".to_owned());
@@ -1509,10 +1613,10 @@ impl Node for Comment {
     }
 }
 
-#[derive(Debug)]
-pub struct Diagram<T: Node> {
-    root: T,
-    extra_attributes: collections::HashMap<String, String>,
+#[derive(Debug, Clone)]
+pub struct Diagram<N> {
+    root: N,
+    extra_attributes: HashMap<String, String>,
     extra_elements: Vec<svg::Element>,
     left_padding: i64,
     right_padding: i64,
@@ -1520,25 +1624,27 @@ pub struct Diagram<T: Node> {
     bottom_padding: i64,
 }
 
-impl<T: Node> Diagram<T> {
+impl<N: Node> Diagram<N> {
     /// Create a diagram using the given root-element.
     ///
     /// ```
-    /// let mut seq = railroad::Sequence::default();
-    /// seq.push(Box::new(railroad::Start))
-    ///    .push(Box::new(railroad::Terminal::new("Foobar".to_owned())))
-    ///    .push(Box::new(railroad::End));
-    /// let mut dia = railroad::Diagram::new(seq);
-    /// dia.add_element(railroad::svg::Element::new("style")
+    /// use railroad::*;
+    ///
+    /// let mut seq: Sequence::<Box<dyn Node>> = Sequence::default();
+    /// seq.push(Box::new(Start))
+    ///    .push(Box::new(Terminal::new("Foobar".to_owned())))
+    ///    .push(Box::new(End));
+    /// let mut dia = Diagram::new(seq);
+    /// dia.add_element(svg::Element::new("style")
     ///                 .set("type", "text/css")
-    ///                 .raw_text(railroad::DEFAULT_CSS));
+    ///                 .raw_text(DEFAULT_CSS));
     /// println!("{}", dia);
     /// ```
-    pub fn new(root: T) -> Self {
+    pub fn new(root: N) -> Self {
         Self {
             root,
-            extra_attributes: collections::HashMap::new(),
-            extra_elements: vec![],
+            extra_attributes: HashMap::default(),
+            extra_elements: Vec::default(),
             left_padding: 10,
             right_padding: 10,
             top_padding: 10,
@@ -1547,7 +1653,7 @@ impl<T: Node> Diagram<T> {
     }
 
     /// Create a diagram which has this library's default CSS style included.
-    pub fn with_default_css(root: T) -> Self {
+    pub fn with_default_css(root: N) -> Self {
         let mut dia = Self::new(root);
         dia.add_default_css();
         dia
@@ -1563,9 +1669,8 @@ impl<T: Node> Diagram<T> {
     }
 
     /// Set an attribute on the <svg>-tag.
-    pub fn set_attribute(&mut self, key: impl Into<String>, value: impl ToString) -> &mut Self {
-        self.extra_attributes.insert(key.into(), value.to_string());
-        self
+    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
+        self.extra_attributes.entry(key)
     }
 
     /// Add an additional `svg::Element` which is written before the root-element
@@ -1574,17 +1679,41 @@ impl<T: Node> Diagram<T> {
         self
     }
 
+    /// Write this diagram's SVG-code to the given writer.
+    ///
+    /// # Errors
+    /// Returns errors in the underlying writer.
     pub fn write(&self, writer: &mut impl io::Write) -> io::Result<()> {
         write!(writer, "{}", self.draw(0, 0, HDir::LTR))
     }
 
     /// Return the root-element this diagram's root element
-    pub fn into_inner(self) -> T {
+    pub fn into_inner(self) -> N {
         self.root
     }
 }
 
-impl<T: Node> Node for Diagram<T> {
+impl<N> Default for Diagram<N>
+where
+    N: Default,
+{
+    fn default() -> Self {
+        Self {
+            root: Default::default(),
+            extra_attributes: HashMap::default(),
+            extra_elements: Vec::default(),
+            left_padding: 10,
+            right_padding: 10,
+            top_padding: 10,
+            bottom_padding: 10,
+        }
+    }
+}
+
+impl<N> Node for Diagram<N>
+where
+    N: Node,
+{
     fn entry_height(&self) -> i64 {
         0
     }
@@ -1616,7 +1745,10 @@ impl<T: Node> Node for Diagram<T> {
     }
 }
 
-impl<T: Node> fmt::Display for Diagram<T> {
+impl<N> fmt::Display for Diagram<N>
+where
+    N: Node,
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "{}", self.draw(0, 0, HDir::LTR))
     }
@@ -1628,7 +1760,10 @@ mod tests {
 
     #[test]
     fn debug_impl() {
-        let s = Sequence::new(vec![Box::new(SimpleStart), Box::new(SimpleEnd)]);
+        let s = Sequence::new(vec![
+            Box::new(SimpleStart) as Box<dyn Node>,
+            Box::new(SimpleEnd),
+        ]);
         assert_eq!("Sequence { children: [Node { entry_height: 5, height: 10, width: 15 }, Node { entry_height: 5, height: 10, width: 15 }], spacing: 10 }", format!("{:?}", &s));
         assert_eq!(
             "Node { entry_height: 5, height: 10, width: 40 }",

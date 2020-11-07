@@ -1,8 +1,10 @@
-use htmlescape;
-use std::{collections, fmt::Write};
+use std::{
+    collections::HashMap,
+    fmt::{self, Write},
+};
 
 /// A shorthand to draw rounded corners, see `PathData::arc`.
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum Arc {
     EastToNorth,
     EastToSouth,
@@ -16,7 +18,7 @@ pub enum Arc {
 
 /// Selects the direction in which arrows on positive direction horizontal
 /// lines point.
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum HDir {
     LTR,
     RTL,
@@ -24,11 +26,18 @@ pub enum HDir {
 
 impl HDir {
     /// Invert the direction.
+    #[must_use]
     pub fn invert(self) -> Self {
         match self {
             HDir::LTR => HDir::RTL,
             HDir::RTL => HDir::LTR,
         }
+    }
+}
+
+impl Default for HDir {
+    fn default() -> Self {
+        Self::LTR
     }
 }
 
@@ -40,6 +49,7 @@ pub struct PathData {
 
 impl PathData {
     /// Construct a empty `PathData`
+    #[must_use]
     pub fn new(h_dir: HDir) -> Self {
         Self {
             text: String::new(),
@@ -48,29 +58,34 @@ impl PathData {
     }
 
     /// Convert to a `Element` of type `path` and fill it's data-attribute
+    #[must_use]
     pub fn into_path(self) -> Element {
-        Element::new("path").set("d", self)
+        Element::new("path").set("d", &self.text)
     }
 
     /// Move the cursor to this absolute position without drawing anything
+    #[must_use]
     pub fn move_to(mut self, x: i64, y: i64) -> Self {
         write!(self.text, " M {} {}", x, y).unwrap();
         self
     }
 
     /// Move the cursor relative to the current position without drawing anything
+    #[must_use]
     pub fn move_rel(mut self, x: i64, y: i64) -> Self {
         write!(self.text, " m {} {}", x, y).unwrap();
         self
     }
 
     /// Draw a line from the cursor's current location to the given relative position
+    #[must_use]
     pub fn line_rel(mut self, x: i64, y: i64) -> Self {
         write!(self.text, " l {} {}", x, y).unwrap();
         self
     }
 
     /// Draw a horizontal section from the cursor's current position
+    #[must_use]
     pub fn horizontal(mut self, h: i64) -> Self {
         write!(self.text, " h {}", h).unwrap();
         // Add an arrow for long stretches
@@ -104,6 +119,7 @@ impl PathData {
     }
 
     /// Draw a vertical section from the cursor's current position
+    #[must_use]
     pub fn vertical(mut self, h: i64) -> Self {
         write!(self.text, " v {}", h).unwrap();
         // Add an arrow for long stretches
@@ -125,6 +141,7 @@ impl PathData {
     }
 
     /// Draw a rounded corner using the given radius and direction
+    #[must_use]
     pub fn arc(mut self, radius: i64, kind: Arc) -> Self {
         let (sweep, x, y) = match kind {
             Arc::EastToNorth => (1, -radius, -radius),
@@ -141,7 +158,7 @@ impl PathData {
     }
 }
 
-impl ::std::fmt::Display for PathData {
+impl fmt::Display for PathData {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> Result<(), ::std::fmt::Error> {
         write!(f, "{}", self.text)
     }
@@ -163,10 +180,10 @@ impl ::std::fmt::Display for PathData {
 /// let serialized = e.to_string();
 /// assert_eq!(serialized, "<g>\n<rect class=\"important\" x=\"15\"/>\n<path d=\" M 5 5 l 10 20\"/>\n</g>\n");
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct Element {
     name: String,
-    attributes: collections::HashMap<String, String>,
+    attributes: HashMap<String, String>,
     text: Option<String>,
     children: Vec<Element>,
     siblings: Vec<Element>,
@@ -174,32 +191,38 @@ pub struct Element {
 
 impl Element {
     /// Construct a new `Element` of type `name`.
-    pub fn new(name: impl Into<String>) -> Self {
+    pub fn new(name: impl ToString) -> Self {
         Self {
-            name: name.into(),
-            attributes: collections::HashMap::new(),
+            name: name.to_string(),
+            attributes: HashMap::default(),
             text: None,
-            children: Vec::new(),
-            siblings: Vec::new(),
+            children: Vec::default(),
+            siblings: Vec::default(),
         }
     }
 
     /// Set this Element's attribute `key` to `value`
-    pub fn set(mut self, key: impl Into<String>, value: impl ToString) -> Self {
-        self.attributes.insert(key.into(), value.to_string());
+    pub fn set(mut self, key: impl ToString, value: impl ToString) -> Self {
+        self.attributes.insert(key.to_string(), value.to_string());
         self
     }
 
     /// Set all attributes via these `key`:`value`-pairs
-    pub fn set_all<'a>(mut self, iter: impl IntoIterator<Item = (&'a String, &'a String)>) -> Self {
-        self.attributes
-            .extend(iter.into_iter().map(|(k, v)| (k.to_owned(), v.to_owned())));
+    pub fn set_all(
+        mut self,
+        iter: impl IntoIterator<Item = (impl ToString, impl ToString)>,
+    ) -> Self {
+        self.attributes.extend(
+            iter.into_iter()
+                .map(|(k, v)| (k.to_string(), v.to_string())),
+        );
         self
     }
 
     /// Set the text within the opening and closing tag of this Element.
     ///
     /// The text is automatically HTML-escaped. It is written before any children.
+    #[must_use]
     pub fn text(mut self, text: &str) -> Self {
         self.text = Some(htmlescape::encode_minimal(text));
         self
@@ -208,14 +231,19 @@ impl Element {
     /// Set the text within the opening and closing tag of this Element.
     ///
     /// The text is NOT automatically HTML-escaped.
-    pub fn raw_text(mut self, text: impl Into<String>) -> Self {
-        self.text = Some(text.into());
+    pub fn raw_text<T>(mut self, text: T) -> Self
+    where
+        T: ToString,
+    {
+        self.text = Some(text.to_string());
         self
     }
 
     /// Add a child to this Element
     ///
     /// Children is written within the opening and closing tag of this Element.
+    #[allow(clippy::should_implement_trait)]
+    #[must_use]
     pub fn add(mut self, e: Self) -> Self {
         self.children.push(e);
         self
@@ -232,6 +260,7 @@ impl Element {
     /// Add a sibling to this Element
     ///
     /// Siblings is written after the closing tag of this Element.
+    #[must_use]
     pub fn append(mut self, e: Self) -> Self {
         self.siblings.push(e);
         self

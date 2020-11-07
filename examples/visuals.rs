@@ -35,16 +35,16 @@ fn main() {
             Terminal::new($r.to_owned())
         };
     }
-    macro_rules! seq { ($($r: expr),*) => { Sequence::new(vec![ $( Box::new($r), )+ ]) } }
-    macro_rules! choice { ($($r: expr),*) => { Choice::new(vec![ $( Box::new($r), )* ]) } }
-    macro_rules! stck { ($($r: expr),*) => { Stack::new(vec![ $( Box::new($r), )* ]) } }
+    macro_rules! seq { ($($r: expr),*) => { Sequence::<Box<dyn Node>>::new(vec![ $( Box::new($r), )+ ]) } }
+    macro_rules! choice { ($($r: expr),*) => { Choice::<Box<dyn Node>>::new(vec![ $( Box::new($r), )* ]) } }
+    macro_rules! stck { ($($r: expr),*) => { Stack::<Box<dyn Node>>::new(vec![ $( Box::new($r), )* ]) } }
     macro_rules! cmt {
         ($r:expr) => {
             Comment::new($r.to_owned())
         };
     }
-    macro_rules! vert { ($($r: expr),*) => { VerticalGrid::new(vec![ $( Box::new($r), )+ ]) } }
-    macro_rules! horiz { ($($r: expr),*) => { HorizontalGrid::new(vec![ $( Box::new($r), )+ ]) } }
+    macro_rules! vert { ($($r: expr),*) => { VerticalGrid::new(vec![ $( Box::new($r) as Box<dyn Node>, )+ ]) } }
+    macro_rules! horiz { ($($r: expr),*) => { HorizontalGrid::new(vec![ $( Box::new($r) as Box<dyn Node>, )+ ]) } }
     macro_rules! lnk {
         ($r:expr) => {
             Link::new($r, "https://www.rust-lang.org".to_owned())

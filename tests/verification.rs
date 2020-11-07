@@ -8,13 +8,11 @@
 #[macro_use]
 extern crate lazy_static;
 
-use railroad_verification;
-
-use railroad::*;
+use railroad::Node;
 
 lazy_static! {
     static ref VERIFIER: railroad_verification::Verifier =
-        { railroad_verification::Verifier::new().unwrap() };
+        railroad_verification::Verifier::new().unwrap();
 }
 
 macro_rules! verify {
@@ -29,58 +27,58 @@ macro_rules! verify {
 
 macro_rules! raw_dia {
     ($r:expr) => {
-        Diagram::with_default_css($r).to_string()
+        railroad::Diagram::with_default_css($r).to_string()
     };
 }
 macro_rules! dia {
     ($r:expr) => {
-        raw_dia!(seq!(SimpleStart, $r, SimpleEnd));
+        raw_dia!(seq!(railroad::SimpleStart, $r, railroad::SimpleEnd));
     };
 }
 macro_rules! nonterm {
     ($r:expr) => {
-        NonTerminal::new($r.to_owned())
+        railroad::NonTerminal::new($r.to_owned())
     };
 }
 macro_rules! term {
     ($r:expr) => {
-        Terminal::new($r.to_owned())
+        railroad::Terminal::new($r.to_owned())
     };
 }
-macro_rules! seq { ($($r: expr),*) => { Sequence::new(vec![ $( Box::new($r), )+ ]) } }
-macro_rules! choice { ($($r: expr),*) => { Choice::new(vec![ $( Box::new($r), )* ]) } }
-macro_rules! stck { ($($r: expr),*) => { Stack::new(vec![ $( Box::new($r), )* ]) } }
+macro_rules! seq { ($($r: expr),*) => { railroad::Sequence::new(vec![ $( Box::new($r) as Box<dyn Node>, )+ ]) } }
+macro_rules! choice { ($($r: expr),*) => { railroad::Choice::new(vec![ $( Box::new($r) as Box<dyn Node>, )* ]) } }
+macro_rules! stck { ($($r: expr),*) => { railroad::Stack::new(vec![ $( Box::new($r) as Box<dyn Node>, )* ]) } }
 macro_rules! cmt {
     ($r:expr) => {
-        Comment::new($r.to_owned())
+        railroad::Comment::new($r.to_owned())
     };
 }
-macro_rules! vert { ($($r: expr),*) => { VerticalGrid::new(vec![ $( Box::new($r), )+ ]) } }
-macro_rules! horiz { ($($r: expr),*) => { HorizontalGrid::new(vec![ $( Box::new($r), )+ ]) } }
+macro_rules! vert { ($($r: expr),*) => { railroad::VerticalGrid::new(vec![ $( Box::new($r) as Box<dyn Node>, )+ ]) } }
+macro_rules! horiz { ($($r: expr),*) => { railroad::HorizontalGrid::new(vec![ $( Box::new($r) as Box<dyn Node>, )+ ]) } }
 macro_rules! rpt {
     ($r:expr, $s:expr) => {
-        Repeat::new($r, $s)
+        railroad::Repeat::new($r, $s)
     };
     ($r:expr) => {
-        rpt!($r, Empty)
+        rpt!($r, railroad::Empty)
     };
 }
 macro_rules! opt {
     ($r:expr) => {
-        Optional::new($r)
+        railroad::Optional::new($r)
     };
 }
 macro_rules! lbox {
     ($r:expr, $u:expr) => {
-        LabeledBox::new($r, $u)
+        railroad::LabeledBox::new($r, $u)
     };
     ($r:expr) => {
-        LabeledBox::new($r, Empty)
+        railroad::LabeledBox::new($r, railroad::Empty)
     };
 }
 macro_rules! lnk {
     ($r:expr) => {
-        Link::new($r, "https://www.google.com".to_owned())
+        railroad::Link::new($r, "https://www.google.com".to_owned())
     };
 }
 
@@ -102,7 +100,7 @@ verify!(
     blank_link,
     dia!({
         let mut l = lnk!(term!("Foo"));
-        l.set_target(Some(LinkTarget::Blank));
+        l.set_target(Some(railroad::LinkTarget::Blank));
         l
     })
 );
