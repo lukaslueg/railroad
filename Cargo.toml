@@ -8,7 +8,7 @@ repository = "https://github.com/lukaslueg/railroad"
 documentation = "https://docs.rs/railroad"
 readme = "README.md"
 exclude = ["examples/*.jpeg"]
-edition = "2018"
+edition = "2021"
 
 [features]
 visual-debug = []

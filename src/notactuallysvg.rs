@@ -275,7 +275,7 @@ impl Element {
 
     /// Adds some basic textual and visual debugging information to this Element
     #[cfg(feature = "visual-debug")]
-    pub fn debug(self, name: &str, x: i64, y: i64, n: &super::Node) -> Self {
+    pub fn debug(self, name: &str, x: i64, y: i64, n: &dyn super::Node) -> Self {
         self.set("railroad:type", name)
             .set("railroad:x", x)
             .set("railroad:y", y)
