@@ -726,15 +726,15 @@ impl Node for Terminal {
 
     fn draw(&self, x: i64, y: i64, _: HDir) -> svg::Element {
         let r = svg::Element::new("rect")
-            .set("x", x)
-            .set("y", y)
-            .set("height", self.height())
-            .set("width", self.width())
-            .set("rx", 10)
-            .set("ry", 10);
+            .set("x", &x)
+            .set("y", &y)
+            .set("height", &self.height())
+            .set("width", &self.width())
+            .set("rx", &10)
+            .set("ry", &10);
         let t = svg::Element::new("text")
-            .set("x", x + self.width() / 2)
-            .set("y", y + self.entry_height() + 5)
+            .set("x", &(x + self.width() / 2))
+            .set("y", &(y + self.entry_height() + 5))
             .text(&self.label);
         svg::Element::new("g")
             .debug("terminal", x, y, self)
@@ -786,15 +786,15 @@ impl Node for NonTerminal {
             .set_all(self.attributes.iter())
             .add(
                 svg::Element::new("rect")
-                    .set("x", x)
-                    .set("y", y)
-                    .set("height", self.height())
-                    .set("width", self.width()),
+                    .set("x", &x)
+                    .set("y", &y)
+                    .set("height", &self.height())
+                    .set("width", &self.width()),
             )
             .add(
                 svg::Element::new("text")
-                    .set("x", x + self.width() / 2)
-                    .set("y", y + self.entry_height() + 5)
+                    .set("x", &(x + self.width() / 2))
+                    .set("y", &(y + self.entry_height() + 5))
                     .text(&self.label),
             )
     }
@@ -1377,6 +1377,8 @@ pub struct Debug {
 
 impl Debug {
     #[must_use]
+    /// # Panics
+    /// If `entry_height` is not smaller than `height`
     pub fn new(entry_height: i64, height: i64, width: i64) -> Self {
         assert!(entry_height < height);
         let mut d = Self {
@@ -1408,10 +1410,10 @@ impl Node for Debug {
 
     fn draw(&self, x: i64, y: i64, _: HDir) -> svg::Element {
         svg::Element::new("rect")
-            .set("x", x)
-            .set("y", y)
-            .set("height", self.height())
-            .set("width", self.width())
+            .set("x", &x)
+            .set("y", &y)
+            .set("height", &self.height())
+            .set("width", &self.width())
             .set_all(self.attributes.iter())
             .debug("Debug", x, y, self)
     }
@@ -1540,10 +1542,10 @@ where
         svg::Element::new("g")
             .add(
                 svg::Element::new("rect")
-                    .set("x", x)
-                    .set("y", y)
-                    .set("height", self.height())
-                    .set("width", self.width()),
+                    .set("x", &x)
+                    .set("y", &y)
+                    .set("height", &self.height())
+                    .set("width", &self.width()),
             )
             .add(
                 svg::PathData::new(h_dir)
@@ -1606,8 +1608,8 @@ impl Node for Comment {
     fn draw(&self, x: i64, y: i64, _: HDir) -> svg::Element {
         svg::Element::new("text")
             .set_all(self.attributes.iter())
-            .set("x", x + self.width() / 2)
-            .set("y", y + 15)
+            .set("x", &(x + self.width() / 2))
+            .set("y", &(y + 15))
             .text(&self.text)
             .debug("Comment", x, y, self)
     }
@@ -1731,9 +1733,9 @@ where
             .set("xmlns", "http://www.w3.org/2000/svg")
             .set("xmlns:xlink", "http://www.w3.org/1999/xlink")
             .set("class", "railroad")
-            .set("viewBox", format!("0 0 {} {}", self.width(), self.height()));
+            .set("viewBox", &format!("0 0 {} {}", self.width(), self.height()));
         for (k, v) in &self.extra_attributes {
-            e = e.set(k.clone(), v.clone());
+            e = e.set(&k, &v);
         }
         for extra_ele in self.extra_elements.iter().cloned() {
             e = e.add(extra_ele);

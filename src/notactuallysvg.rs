@@ -60,34 +60,34 @@ impl PathData {
     /// Convert to a `Element` of type `path` and fill it's data-attribute
     #[must_use]
     pub fn into_path(self) -> Element {
-        Element::new("path").set("d", self.text)
+        Element::new("path").set("d", &self.text)
     }
 
     /// Move the cursor to this absolute position without drawing anything
     #[must_use]
     pub fn move_to(mut self, x: i64, y: i64) -> Self {
-        write!(self.text, " M {} {}", x, y).unwrap();
+        write!(self.text, " M {x} {y}").unwrap();
         self
     }
 
     /// Move the cursor relative to the current position without drawing anything
     #[must_use]
     pub fn move_rel(mut self, x: i64, y: i64) -> Self {
-        write!(self.text, " m {} {}", x, y).unwrap();
+        write!(self.text, " m {x} {y}").unwrap();
         self
     }
 
     /// Draw a line from the cursor's current location to the given relative position
     #[must_use]
     pub fn line_rel(mut self, x: i64, y: i64) -> Self {
-        write!(self.text, " l {} {}", x, y).unwrap();
+        write!(self.text, " l {x} {y}").unwrap();
         self
     }
 
     /// Draw a horizontal section from the cursor's current position
     #[must_use]
     pub fn horizontal(mut self, h: i64) -> Self {
-        write!(self.text, " h {}", h).unwrap();
+        write!(self.text, " h {h}").unwrap();
         // Add an arrow for long stretches
         match (h > 50, h < -50, self.h_dir) {
             (true, _, HDir::LTR) => self
@@ -121,7 +121,7 @@ impl PathData {
     /// Draw a vertical section from the cursor's current position
     #[must_use]
     pub fn vertical(mut self, h: i64) -> Self {
-        write!(self.text, " v {}", h).unwrap();
+        write!(self.text, " v {h}").unwrap();
         // Add an arrow for long stretches
         if h > 50 {
             self.move_rel(0, -(h / 2 - 3))
@@ -153,7 +153,7 @@ impl PathData {
             Arc::WestToNorth => (0, radius, -radius),
             Arc::WestToSouth => (1, radius, radius),
         };
-        write!(self.text, " a {0} {0} 0 0 {1} {2} {3}", radius, sweep, x, y).unwrap();
+        write!(self.text, " a {radius} {radius} 0 0 {sweep} {x} {y}").unwrap();
         self
     }
 }
@@ -172,7 +172,7 @@ impl fmt::Display for PathData {
 /// let e = svg::Element::new("g")
 ///         .add(svg::Element::new("rect")
 ///                 .set("class", "important")
-///                 .set("x", 15))
+///                 .set("x", &15))
 ///         .add(svg::PathData::new(svg::HDir::LTR)
 ///                  .move_to(5, 5)
 ///                  .line_rel(10, 20)
@@ -191,7 +191,9 @@ pub struct Element {
 
 impl Element {
     /// Construct a new `Element` of type `name`.
-    pub fn new(name: impl ToString) -> Self {
+    pub fn new<T>(name: &T) -> Self
+        where T: ToString + ?Sized
+    {
         Self {
             name: name.to_string(),
             attributes: HashMap::default(),
@@ -202,12 +204,17 @@ impl Element {
     }
 
     /// Set this Element's attribute `key` to `value`
-    pub fn set(mut self, key: impl ToString, value: impl ToString) -> Self {
+    #[must_use]
+    pub fn set<K, V>(mut self, key: &K, value: &V) -> Self
+        where K: ToString + ?Sized,
+              V: ToString + ?Sized,
+    {
         self.attributes.insert(key.to_string(), value.to_string());
         self
     }
 
     /// Set all attributes via these `key`:`value`-pairs
+    #[must_use]
     pub fn set_all(
         mut self,
         iter: impl IntoIterator<Item = (impl ToString, impl ToString)>,
@@ -231,9 +238,10 @@ impl Element {
     /// Set the text within the opening and closing tag of this Element.
     ///
     /// The text is NOT automatically HTML-escaped.
-    pub fn raw_text<T>(mut self, text: T) -> Self
+    #[must_use]
+    pub fn raw_text<T>(mut self, text: &T) -> Self
     where
-        T: ToString,
+        T: ToString + ?Sized,
     {
         self.text = Some(text.to_string());
         self
@@ -269,6 +277,7 @@ impl Element {
     #[cfg(not(feature = "visual-debug"))]
     #[allow(unused_variables)]
     #[doc(hidden)]
+    #[must_use]
     pub fn debug(self, name: &str, x: i64, y: i64, n: &dyn super::Node) -> Self {
         self
     }
@@ -276,18 +285,18 @@ impl Element {
     /// Adds some basic textual and visual debugging information to this Element
     #[cfg(feature = "visual-debug")]
     pub fn debug(self, name: &str, x: i64, y: i64, n: &dyn super::Node) -> Self {
-        self.set("railroad:type", name)
-            .set("railroad:x", x)
-            .set("railroad:y", y)
-            .set("railroad:entry_height", n.entry_height())
-            .set("railroad:height", n.height())
-            .set("railroad:width", n.width())
+        self.set("railroad:type", &name)
+            .set("railroad:x", &x)
+            .set("railroad:y", &y)
+            .set("railroad:entry_height", &n.entry_height())
+            .set("railroad:height", &n.height())
+            .set("railroad:width", &n.width())
             .add(Element::new("title").text(name))
             .append(
                 Element::new("path")
                     .set(
                         "d",
-                        PathData::new(HDir::LTR)
+                        &PathData::new(HDir::LTR)
                             .move_to(x, y)
                             .horizontal(n.width())
                             .vertical(5)
@@ -309,7 +318,7 @@ impl ::std::fmt::Display for Element {
         let mut attrs = self.attributes.iter().collect::<Vec<_>>();
         attrs.sort_by_key(|(k, _)| *k);
         for (k, v) in attrs {
-            write!(f, " {}=\"{}\"", k, v)?;
+            write!(f, " {k}=\"{v}\"")?;
         }
         if self.text.is_none() && self.children.is_empty() {
             f.write_str("/>\n")?;
@@ -320,14 +329,14 @@ impl ::std::fmt::Display for Element {
             f.write_str(t)?;
         }
         for child in &self.children {
-            write!(f, "{}", child)?;
+            write!(f, "{child}")?;
         }
 
         if self.text.is_some() || !self.children.is_empty() {
             writeln!(f, "</{}>", self.name)?;
         }
         for sibling in &self.siblings {
-            write!(f, "{}", sibling)?;
+            write!(f, "{sibling}")?;
         }
         Ok(())
     }
