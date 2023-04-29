@@ -53,8 +53,6 @@
 //! ```
 //!
 
-#![cfg_attr(feature = "nightly", feature(external_doc))]
-
 use std::{
     cmp,
     collections::{self, HashMap},
@@ -65,8 +63,7 @@ pub mod notactuallysvg;
 pub use crate::notactuallysvg as svg;
 use crate::svg::HDir;
 
-#[cfg(feature = "nightly")]
-#[doc(include = "../README.md")]
+#[doc = include_str!("../README.md")]
 #[allow(dead_code)]
 type _READMETEST = ();
 
