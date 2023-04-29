@@ -1,7 +1,7 @@
 ### A library to create syntax ("railroad") diagrams as Scalable Vector Graphics (SVG).
 
 
-[![Build Status](https://travis-ci.org/lukaslueg/railroad.svg?branch=master)](https://travis-ci.org/lukaslueg/railroad)
+[![Build status](https://github.com/lukaslueg/railroad/actions/workflows/check.yml/badge.svg)](https://github.com/lukaslueg/railroad/actions/workflows/check.yml)
 [![Crates.io Version](https://img.shields.io/crates/v/railroad.svg)](https://crates.io/crates/railroad)
 [![Docs](https://docs.rs/railroad/badge.svg)](https://docs.rs/railroad)
 
