@@ -32,7 +32,7 @@ macro_rules! raw_dia {
 }
 macro_rules! dia {
     ($r:expr) => {
-        raw_dia!(seq!(railroad::SimpleStart, $r, railroad::SimpleEnd));
+        raw_dia!(seq!(railroad::SimpleStart, $r, railroad::SimpleEnd))
     };
 }
 macro_rules! nonterm {
