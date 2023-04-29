@@ -60,7 +60,7 @@ impl PathData {
     /// Convert to a `Element` of type `path` and fill it's data-attribute
     #[must_use]
     pub fn into_path(self) -> Element {
-        Element::new("path").set("d", &self.text)
+        Element::new("path").set("d", self.text)
     }
 
     /// Move the cursor to this absolute position without drawing anything

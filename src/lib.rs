@@ -261,17 +261,12 @@ where
 }
 
 /// Possible targets for `Link`.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 pub enum LinkTarget {
+    #[default]
     Blank,
     Parent,
     Top,
-}
-
-impl Default for LinkTarget {
-    fn default() -> Self {
-        LinkTarget::Blank
-    }
 }
 
 /// Wraps another primitive, making it a clickable link to some URI.
