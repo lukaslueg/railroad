@@ -192,7 +192,8 @@ pub struct Element {
 impl Element {
     /// Construct a new `Element` of type `name`.
     pub fn new<T>(name: &T) -> Self
-        where T: ToString + ?Sized
+    where
+        T: ToString + ?Sized,
     {
         Self {
             name: name.to_string(),
@@ -206,8 +207,9 @@ impl Element {
     /// Set this Element's attribute `key` to `value`
     #[must_use]
     pub fn set<K, V>(mut self, key: &K, value: &V) -> Self
-        where K: ToString + ?Sized,
-              V: ToString + ?Sized,
+    where
+        K: ToString + ?Sized,
+        V: ToString + ?Sized,
     {
         self.attributes.insert(key.to_string(), value.to_string());
         self
