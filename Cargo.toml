@@ -1,6 +1,6 @@
 [package]
 name = "railroad"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["Lukas Lueg <lukas.lueg@gmail.com>"]
 license = "MIT"
 description = "A library to create syntax-diagrams as Scalable Vector Graphics"
