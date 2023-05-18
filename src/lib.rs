@@ -92,7 +92,7 @@ pub const DEFAULT_CSS: &str = r#"
     svg.railroad path {
         stroke-width: 3px;
         stroke: black;
-        fill: transparent;
+        fill: none;
     }
 
     svg.railroad .debug {
