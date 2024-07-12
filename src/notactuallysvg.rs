@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::HashMap,
     fmt::{self, Write},
 };
@@ -233,7 +234,7 @@ impl Element {
     /// The text is automatically HTML-escaped. It is written before any children.
     #[must_use]
     pub fn text(mut self, text: &str) -> Self {
-        self.text = Some(htmlescape::encode_minimal(text));
+        self.text = Some(encode_minimal(text).into_owned());
         self
     }
 
@@ -341,5 +342,62 @@ impl ::std::fmt::Display for Element {
             write!(f, "{sibling}")?;
         }
         Ok(())
+    }
+}
+
+/// Entity-encode the bare minimum of the given string (`"`, `&`, `<`, `>`, `'`) to allow
+/// safely using that string as pure text in an SVG.
+pub fn encode_minimal(inp: &str) -> Cow<str> {
+    let mut buf = String::new();
+    let mut last_idx = 0;
+    for (idx, c) in inp.char_indices() {
+        if let Some(entity) = match c {
+            '"' => Some("&quot;"),
+            '&' => Some("&amp;"),
+            '<' => Some("&lt;"),
+            '>' => Some("&gt;"),
+            '\'' => Some("&#x27;"),
+            _ => None,
+        } {
+            buf.push_str(&inp[last_idx..idx]);
+            buf.push_str(entity);
+            last_idx = idx + 1;
+        }
+    }
+    if !buf.is_empty() {
+        buf.push_str(&inp[last_idx..]);
+        Cow::Owned(buf)
+    } else {
+        Cow::Borrowed(inp)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::borrow::Cow;
+
+    #[test]
+    fn encode_minimal() {
+        for (inp, expected) in [
+            ("'a", Some("&#x27;a")),
+            ("", None),
+            ("'", Some("&#x27;")),
+            ("a'", Some("a&#x27;")),
+            ("hello world!", None),
+            ("&", Some("&amp;")),
+            ("<br>", Some("&lt;br&gt;")),
+            (
+                "\"a\" is not \"b\"",
+                Some("&quot;a&quot; is not &quot;b&quot;"),
+            ),
+        ] {
+            eprintln!("now hear this: {}", inp);
+            let result = super::encode_minimal(inp);
+            assert_eq!(result, expected.unwrap_or(inp));
+            assert!(matches!(
+                (expected, result),
+                (None, Cow::Borrowed(_)) | (Some(_), Cow::Owned(_))
+            ));
+        }
     }
 }
