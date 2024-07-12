@@ -960,7 +960,7 @@ where
 {
     fn entry_height(&self) -> i64 {
         self.children
-            .get(0)
+            .first()
             .map(Node::entry_height)
             .unwrap_or_default()
     }
@@ -1130,7 +1130,7 @@ where
 {
     fn entry_height(&self) -> i64 {
         self.children
-            .get(0)
+            .first()
             .map(Node::entry_height)
             .unwrap_or_default()
     }
@@ -1172,17 +1172,20 @@ where
             svg::PathData::new(h_dir)
                 .move_to(x, y + self.entry_height())
                 .horizontal(self.inner_padding())
-                .move_rel(self.children.get(0).map(Node::width).unwrap_or_default(), 0)
+                .move_rel(
+                    self.children.first().map(Node::width).unwrap_or_default(),
+                    0,
+                )
                 .horizontal(
                     self.width()
                         - self.inner_padding()
-                        - self.children.get(0).map(Node::width).unwrap_or_default(),
+                        - self.children.first().map(Node::width).unwrap_or_default(),
                 )
                 .into_path(),
         );
 
         // The first child is simply drawn in-line
-        if let Some(child) = self.children.get(0) {
+        if let Some(child) = self.children.first() {
             g.push(child.draw(x + self.inner_padding(), y, h_dir));
         }
 
