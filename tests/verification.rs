@@ -5,14 +5,13 @@
 //! This uses `xmllint` from libxml2, which may not be available when tests are
 //! executed, so all tests should be #[ignore]
 
-#[macro_use]
-extern crate lazy_static;
+use std::sync::OnceLock;
 
 use railroad::Node;
 
-lazy_static! {
-    static ref VERIFIER: railroad_verification::Verifier =
-        railroad_verification::Verifier::new().unwrap();
+fn init_verifier() -> &'static railroad_verification::Verifier {
+    static VERIFIER: OnceLock<railroad_verification::Verifier> = OnceLock::new();
+    VERIFIER.get_or_init(|| railroad_verification::Verifier::new().unwrap())
 }
 
 macro_rules! verify {
@@ -20,7 +19,7 @@ macro_rules! verify {
         #[test]
         #[ignore]
         fn $testname() {
-            VERIFIER.verify($src).unwrap();
+            init_verifier().verify($src).unwrap();
         }
     };
 }
