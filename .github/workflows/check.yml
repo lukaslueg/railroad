@@ -21,6 +21,7 @@ jobs:
           components: clippy
       - run: cargo clippy -- -D warnings
       - run: cargo clippy --features visual-debug -- -D warnings
+      - run: cargo clippy --features resvg -- -D warnings
 
   test:
     runs-on: ubuntu-latest
@@ -32,6 +33,7 @@ jobs:
           sudo apt-get update && sudo apt-get install -y libxml2-utils
           cargo test -- --ignored
           cargo test --features visual-debug -- --ignored
+          cargo test --features resvg -- --ignored
 
   semver:
     name: Semver check

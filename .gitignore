@@ -1,5 +1,5 @@
-
 /target
+/examples/render.png
 /examples/visuals.html
 **/*.rs.bk
 Cargo.lock

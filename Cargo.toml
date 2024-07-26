@@ -11,10 +11,19 @@ exclude = ["examples/*.jpeg"]
 edition = "2021"
 
 [features]
+default = [ "resvg" ]
 visual-debug = []
 
 [dependencies]
 unicode-width = "0.1"
+resvg = { version = "0.42", optional=true, features=["text", "system-fonts", "memmap-fonts"] }
 
 [dev-dependencies]
 railroad_verification = "0.1"
+
+[[example]]
+name = "render"
+required-features = [ "resvg" ]
+
+[package.metadata.docs.rs]
+features = [ "resvg" ]

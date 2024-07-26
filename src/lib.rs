@@ -1,6 +1,6 @@
 // MIT License
 //
-// Copyright (c) 2018-2020 Lukas Lueg (lukas.lueg@gmail.com)
+// Copyright (c) Lukas Lueg (lukas.lueg@gmail.com)
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -31,7 +31,7 @@
 //! Primitives are combined into more complex strctures by wrapping simple elements into more
 //! complex ones.
 //!
-//! ```
+//! ```rust
 //! use railroad::*;
 //!
 //! // This diagram will be a (horizontal) sequence of simple elements
@@ -41,17 +41,12 @@
 //!    .push(Box::new(NonTerminal::new("syntax".to_owned())))
 //!    .push(Box::new(End));
 //!
-//! let mut dia = Diagram::new(seq);
-//!
 //! // The library only computes the diagram's geometry; we use CSS for layout.
-//! dia.add_element(svg::Element::new("style")
-//!                 .set("type", "text/css")
-//!                 .raw_text(DEFAULT_CSS));
+//! let mut dia = Diagram::new_with_stylesheet(seq, &Stylesheet::Light);
 //!
 //! // A `Node`'s `fmt::Display` is its SVG.
 //! println!("<html>{}</html>", dia);
 //! ```
-//!
 
 use std::{
     cmp,
@@ -62,6 +57,12 @@ use std::{
 pub mod notactuallysvg;
 pub use crate::notactuallysvg as svg;
 use crate::svg::HDir;
+
+#[cfg(feature = "resvg")]
+pub mod render;
+
+#[cfg(feature = "resvg")]
+pub use resvg;
 
 #[doc = include_str!("../README.md")]
 #[allow(dead_code)]
@@ -80,51 +81,66 @@ fn text_width(s: &str) -> usize {
     s.width() + (s.width() / 20)
 }
 
+/// Pre-defined stylesheets
+/// ```rust
+/// use railroad::*;
+///
+/// let mut seq: Sequence::<Box<dyn Node>> = Sequence::default();
+/// seq.push(Box::new(Start))
+///    .push(Box::new(Terminal::new("Foobar".to_owned())))
+///    .push(Box::new(End));
+///
+/// let dia = Diagram::new_with_stylesheet(seq, &Stylesheet::Light);
+/// println!("{}", dia);
+/// ```
+#[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+#[non_exhaustive]
+pub enum Stylesheet {
+    /// The default stylesheet
+    #[default]
+    Light,
+    Dark,
+    /// Variation of the `Light`-theme, compatible with what can be rendered when using `resvg`.
+    LightRendersafe,
+    /// Variation of the `Dark`-theme, compatible with what can be rendered when using `resvg`.
+    DarkRendersafe,
+}
+
+impl Stylesheet {
+    /// Switch this stylesheet to it's "dark" variant, preserving render-safety.
+    pub const fn to_dark(&self) -> Self {
+        match self {
+            Self::Light | Self::Dark => Self::Dark,
+            Self::LightRendersafe | Self::DarkRendersafe => Self::DarkRendersafe,
+        }
+    }
+
+    /// Switch this stylesheet to it's "light" variant, preserving render-safety.
+    pub const fn to_light(&self) -> Self {
+        match self {
+            Self::Light | Self::Dark => Self::Light,
+            Self::LightRendersafe | Self::DarkRendersafe => Self::LightRendersafe,
+        }
+    }
+
+    /// Returns `True` if this stylesheet is of a "light" variant.
+    pub const fn is_light(&self) -> bool {
+        matches!(self, Self::Light | Self::LightRendersafe)
+    }
+
+    /// The CSS for this stylesheet.
+    pub const fn stylesheet(self) -> &'static str {
+        match self {
+            Self::Light => include_str!("stylesheet_light.css"),
+            Self::Dark => include_str!("stylesheet_dark.css"),
+            Self::LightRendersafe => include_str!("stylesheet_light_safe.css"),
+            Self::DarkRendersafe => include_str!("stylesheet_dark_safe.css"),
+        }
+    }
+}
+
 /// Default Cascading Style Sheets for the resuling SVG.
-pub const DEFAULT_CSS: &str = r#"
-    svg.railroad {
-        background-color: hsl(30, 20%, 95%);
-        background-size: 15px 15px;
-        background-image: linear-gradient(to right, rgba(30, 30, 30, .05) 1px, transparent 1px),
-                          linear-gradient(to bottom, rgba(30, 30, 30, .05) 1px, transparent 1px);
-    }
-
-    svg.railroad path {
-        stroke-width: 3px;
-        stroke: black;
-        fill: none;
-    }
-
-    svg.railroad .debug {
-        stroke-width: 1px;
-        stroke: red;
-    }
-
-    svg.railroad text {
-        font: 14px monospace;
-        text-anchor: middle;
-    }
-
-    svg.railroad .nonterminal text {
-        font-weight: bold;
-    }
-
-    svg.railroad text.comment {
-        font: italic 12px monospace;
-    }
-
-    svg.railroad rect {
-        stroke-width: 3px;
-        stroke: black;
-        fill:hsl(-290, 70%, 90%);
-    }
-
-    svg.railroad g.labeledbox > rect {
-        stroke-width: 1px;
-        stroke: grey;
-        stroke-dasharray: 5px;
-        fill:rgba(90, 90, 150, .1);
-    }"#;
+pub const DEFAULT_CSS: &str = Stylesheet::Light.stylesheet();
 
 /// A diagram is built from a set of primitives which implement `Node`.
 ///
@@ -1639,10 +1655,8 @@ impl<N: Node> Diagram<N> {
     /// seq.push(Box::new(Start))
     ///    .push(Box::new(Terminal::new("Foobar".to_owned())))
     ///    .push(Box::new(End));
+    ///
     /// let mut dia = Diagram::new(seq);
-    /// dia.add_element(svg::Element::new("style")
-    ///                 .set("type", "text/css")
-    ///                 .raw_text(DEFAULT_CSS));
     /// println!("{}", dia);
     /// ```
     pub fn new(root: N) -> Self {
@@ -1657,6 +1671,25 @@ impl<N: Node> Diagram<N> {
         }
     }
 
+    /// Create a diagram using the given root-element, adding the given stylesheet.
+    ///
+    /// ```rust
+    /// use railroad::*;
+    ///
+    /// let mut seq: Sequence::<Box<dyn Node>> = Sequence::default();
+    /// seq.push(Box::new(Start))
+    ///    .push(Box::new(Terminal::new("Foobar".to_owned())))
+    ///    .push(Box::new(End));
+    ///
+    /// let dia = Diagram::new_with_stylesheet(seq, &Stylesheet::Light);
+    /// println!("{}", dia);
+    /// ```
+    pub fn new_with_stylesheet(root: N, style: &Stylesheet) -> Self {
+        let mut dia = Self::new(root);
+        dia.add_stylesheet(style);
+        dia
+    }
+
     /// Create a diagram which has this library's default CSS style included.
     pub fn with_default_css(root: N) -> Self {
         let mut dia = Self::new(root);
@@ -1664,16 +1697,25 @@ impl<N: Node> Diagram<N> {
         dia
     }
 
+    pub fn add_stylesheet(&mut self, style: &Stylesheet) {
+        self.add_css(style.stylesheet())
+    }
+
     /// Add the default CSS as an additional `<style>` element.
     pub fn add_default_css(&mut self) {
+        self.add_css(DEFAULT_CSS);
+    }
+
+    /// Add the given CSS as an additional `<style>` element.
+    pub fn add_css(&mut self, css: &str) {
         self.add_element(
             svg::Element::new("style")
                 .set("type", "text/css")
-                .raw_text(DEFAULT_CSS),
+                .raw_text(css),
         );
     }
 
-    /// Set an attribute on the <svg>-tag.
+    /// Set an attribute on the `<svg>`-tag.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.extra_attributes.entry(key)
     }
@@ -1747,6 +1789,12 @@ where
             e = e.add(extra_ele);
         }
         e.add(
+            svg::Element::new("rect")
+                .set("width", "100%")
+                .set("height", "100%")
+                .set("class", "railroad_canvas"),
+        )
+        .add(
             self.root
                 .draw(x + self.left_padding, y + self.top_padding, h_dir),
         )
