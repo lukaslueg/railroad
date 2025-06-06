@@ -1,6 +1,6 @@
 [package]
 name = "railroad"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Lukas Lueg <lukas.lueg@gmail.com>"]
 license = "MIT"
 description = "A library to create syntax-diagrams as Scalable Vector Graphics"
@@ -8,15 +8,15 @@ repository = "https://github.com/lukaslueg/railroad"
 documentation = "https://docs.rs/railroad"
 readme = "README.md"
 exclude = ["examples/*.jpeg", "examples/*.png", "examples/*.html"]
-edition = "2021"
+edition = "2024"
 
 [features]
 default = [ "resvg" ]
 visual-debug = []
 
 [dependencies]
-unicode-width = "0.1"
-resvg = { version = "0.42", optional=true, features=["text", "system-fonts", "memmap-fonts"] }
+unicode-width = "0.2"
+resvg = { version = "0.45", optional=true, features=["text", "system-fonts", "memmap-fonts"] }
 
 [dev-dependencies]
 railroad_verification = "0.1"

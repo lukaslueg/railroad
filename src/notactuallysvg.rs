@@ -347,6 +347,7 @@ impl ::std::fmt::Display for Element {
 
 /// Entity-encode the bare minimum of the given string (`"`, `&`, `<`, `>`, `'`) to allow
 /// safely using that string as pure text in an SVG.
+#[must_use]
 pub fn encode_minimal(inp: &str) -> Cow<str> {
     let mut buf = String::new();
     let mut last_idx = 0;
@@ -364,11 +365,11 @@ pub fn encode_minimal(inp: &str) -> Cow<str> {
             last_idx = idx + 1;
         }
     }
-    if !buf.is_empty() {
+    if buf.is_empty() {
+        Cow::Borrowed(inp)
+    } else {
         buf.push_str(&inp[last_idx..]);
         Cow::Owned(buf)
-    } else {
-        Cow::Borrowed(inp)
     }
 }
 
@@ -632,6 +633,7 @@ const ENTITIES: [Option<&'static str>; 256] = [
 ];
 
 /// Encode the given string to allow safely using that string as an attribute-value.
+#[must_use]
 pub fn encode_attribute(inp: &str) -> Cow<str> {
     let mut buf = String::new();
     let mut last_idx = 0;
@@ -646,11 +648,11 @@ pub fn encode_attribute(inp: &str) -> Cow<str> {
             }
         }
     }
-    if !buf.is_empty() {
+    if buf.is_empty() {
+        Cow::Borrowed(inp)
+    } else {
         buf.push_str(&inp[last_idx..]);
         Cow::Owned(buf)
-    } else {
-        Cow::Borrowed(inp)
     }
 }
 
@@ -673,7 +675,6 @@ mod tests {
                 Some("&quot;a&quot; is not &quot;b&quot;"),
             ),
         ] {
-            eprintln!("now hear this: {}", inp);
             let result = super::encode_minimal(inp);
             assert_eq!(result, expected.unwrap_or(inp));
             assert!(matches!(

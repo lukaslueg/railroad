@@ -108,6 +108,7 @@ pub enum Stylesheet {
 
 impl Stylesheet {
     /// Switch this stylesheet to it's "dark" variant, preserving render-safety.
+    #[must_use]
     pub const fn to_dark(&self) -> Self {
         match self {
             Self::Light | Self::Dark => Self::Dark,
@@ -116,6 +117,7 @@ impl Stylesheet {
     }
 
     /// Switch this stylesheet to it's "light" variant, preserving render-safety.
+    #[must_use]
     pub const fn to_light(&self) -> Self {
         match self {
             Self::Light | Self::Dark => Self::Light,
@@ -124,11 +126,13 @@ impl Stylesheet {
     }
 
     /// Returns `True` if this stylesheet is of a "light" variant.
+    #[must_use]
     pub const fn is_light(&self) -> bool {
         matches!(self, Self::Light | Self::LightRendersafe)
     }
 
     /// The CSS for this stylesheet.
+    #[must_use]
     pub const fn stylesheet(self) -> &'static str {
         match self {
             Self::Light => include_str!("stylesheet_light.css"),
@@ -402,7 +406,7 @@ impl<N: Node> Node for VerticalGrid<N> {
 
     fn height(&self) -> i64 {
         self.children.iter().total_height()
-            + ((cmp::max(1, self.children.len() as i64) - 1) * self.spacing)
+            + ((cmp::max(1, i64::try_from(self.children.len()).unwrap()) - 1) * self.spacing)
     }
 
     fn width(&self) -> i64 {
@@ -486,7 +490,7 @@ where
 
     fn width(&self) -> i64 {
         self.children.iter().total_width()
-            + ((cmp::max(1, self.children.len() as i64) - 1) * self.spacing)
+            + ((cmp::max(1, i64::try_from(self.children.len()).unwrap()) - 1) * self.spacing)
     }
 
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
@@ -559,7 +563,7 @@ where
     fn width(&self) -> i64 {
         let l = self.children.len();
         if l > 1 {
-            self.children.iter().total_width() + (l - 1) as i64 * self.spacing
+            self.children.iter().total_width() + (i64::try_from(l).unwrap() - 1) * self.spacing
         } else {
             self.children.iter().total_width()
         }
@@ -737,7 +741,7 @@ impl Node for Terminal {
         self.entry_height() * 2
     }
     fn width(&self) -> i64 {
-        text_width(&self.label) as i64 * 8 + 20
+        i64::try_from(text_width(&self.label)).unwrap() * 8 + 20
     }
 
     fn draw(&self, x: i64, y: i64, _: HDir) -> svg::Element {
@@ -793,7 +797,7 @@ impl Node for NonTerminal {
         self.entry_height() * 2
     }
     fn width(&self) -> i64 {
-        text_width(&self.label) as i64 * 8 + 20
+        i64::try_from(text_width(&self.label)).unwrap() * 8 + 20
     }
 
     fn draw(&self, x: i64, y: i64, _: HDir) -> svg::Element {
@@ -1621,7 +1625,7 @@ impl Node for Comment {
         20
     }
     fn width(&self) -> i64 {
-        text_width(&self.text) as i64 * 7 + 10
+        i64::try_from(text_width(&self.text)).unwrap() * 7 + 10
     }
 
     fn draw(&self, x: i64, y: i64, _: HDir) -> svg::Element {
@@ -1698,7 +1702,7 @@ impl<N: Node> Diagram<N> {
     }
 
     pub fn add_stylesheet(&mut self, style: &Stylesheet) {
-        self.add_css(style.stylesheet())
+        self.add_css(style.stylesheet());
     }
 
     /// Add the default CSS as an additional `<style>` element.
@@ -1820,7 +1824,10 @@ mod tests {
             Box::new(SimpleStart) as Box<dyn Node>,
             Box::new(SimpleEnd),
         ]);
-        assert_eq!("Sequence { children: [Node { entry_height: 5, height: 10, width: 15 }, Node { entry_height: 5, height: 10, width: 15 }], spacing: 10 }", format!("{:?}", &s));
+        assert_eq!(
+            "Sequence { children: [Node { entry_height: 5, height: 10, width: 15 }, Node { entry_height: 5, height: 10, width: 15 }], spacing: 10 }",
+            format!("{:?}", &s)
+        );
         assert_eq!(
             "Node { entry_height: 5, height: 10, width: 40 }",
             format!("{:?}", &s as &dyn Node)

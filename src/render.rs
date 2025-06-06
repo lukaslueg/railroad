@@ -23,6 +23,7 @@ pub enum FitTo {
 }
 
 impl FitTo {
+    #[must_use]
     pub fn from_size(width: Option<u32>, height: Option<u32>) -> Self {
         match (width, height) {
             (Some(width), None) => Self::MaxWidth(width),
@@ -85,6 +86,7 @@ static USVG_OPTS: std::sync::LazyLock<resvg::usvg::Options> = std::sync::LazyLoc
 ///
 /// let png_buffer: Vec<u8> = render::to_png(&svg_src, &render::FitTo::default()).unwrap();
 /// ```
+#[allow(clippy::missing_errors_doc)]
 pub fn to_png(svg_src: &str, fit_to: &FitTo) -> Result<Vec<u8>, Error> {
     let xml_tree = resvg::usvg::roxmltree::Document::parse_with_options(
         svg_src,
