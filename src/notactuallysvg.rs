@@ -19,8 +19,9 @@ pub enum Arc {
 
 /// Selects the direction in which arrows on positive direction horizontal
 /// lines point.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum HDir {
+    #[default]
     LTR,
     RTL,
 }
@@ -33,12 +34,6 @@ impl HDir {
             HDir::LTR => HDir::RTL,
             HDir::RTL => HDir::LTR,
         }
-    }
-}
-
-impl Default for HDir {
-    fn default() -> Self {
-        Self::LTR
     }
 }
 
@@ -348,7 +343,7 @@ impl ::std::fmt::Display for Element {
 /// Entity-encode the bare minimum of the given string (`"`, `&`, `<`, `>`, `'`) to allow
 /// safely using that string as pure text in an SVG.
 #[must_use]
-pub fn encode_minimal(inp: &str) -> Cow<str> {
+pub fn encode_minimal(inp: &str) -> Cow<'_, str> {
     let mut buf = String::new();
     let mut last_idx = 0;
     for (idx, c) in inp.char_indices() {
@@ -634,18 +629,18 @@ const ENTITIES: [Option<&'static str>; 256] = [
 
 /// Encode the given string to allow safely using that string as an attribute-value.
 #[must_use]
-pub fn encode_attribute(inp: &str) -> Cow<str> {
+pub fn encode_attribute(inp: &str) -> Cow<'_, str> {
     let mut buf = String::new();
     let mut last_idx = 0;
     for (idx, c) in inp.char_indices() {
-        if let Ok(b) = <char as TryInto<u8>>::try_into(c) {
-            if let Some(entity) = ENTITIES[b as usize] {
-                let fragment = &inp[last_idx..idx];
-                buf.reserve(fragment.len() + entity.len());
-                buf.push_str(fragment);
-                buf.push_str(entity);
-                last_idx = idx + c.len_utf8();
-            }
+        if let Ok(b) = <char as TryInto<u8>>::try_into(c)
+            && let Some(entity) = ENTITIES[b as usize]
+        {
+            let fragment = &inp[last_idx..idx];
+            buf.reserve(fragment.len() + entity.len());
+            buf.push_str(fragment);
+            buf.push_str(entity);
+            last_idx = idx + c.len_utf8();
         }
     }
     if buf.is_empty() {
