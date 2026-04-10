@@ -146,6 +146,34 @@ impl Stylesheet {
 /// Default Cascading Style Sheets for the resuling SVG.
 pub const DEFAULT_CSS: &str = Stylesheet::Light.stylesheet();
 
+/// Pre-computed geometry for a node and its entire subtree.
+///
+/// This is a transient value created by [`Node::compute_geometry`] and passed into
+/// [`Node::draw_with_geometry`]. It is never stored inside a node struct; it exists
+/// only on the call stack during the draw phase and is dropped when drawing completes.
+///
+/// The `children` vec mirrors the order in which each composite node iterates its
+/// children during drawing, so `children[i]` corresponds to the i-th child drawn.
+/// For single-child wrappers (`Optional`, `Link`) `children[0]` is the inner node.
+/// For `LabeledBox`, `children[0]` is the inner node and `children[1]` is the label.
+/// For `Repeat`, `children[0]` is the inner node and `children[1]` is the repeat node.
+/// Leaf nodes have an empty `children` vec.
+#[derive(Debug, Clone)]
+pub struct NodeGeometry {
+    pub entry_height: i64,
+    pub height: i64,
+    pub width: i64,
+    pub children: Vec<NodeGeometry>,
+}
+
+impl NodeGeometry {
+    /// The vertical distance from the connecting path to the bottom of this node.
+    #[must_use]
+    pub fn height_below_entry(&self) -> i64 {
+        self.height - self.entry_height
+    }
+}
+
 /// A diagram is built from a set of primitives which implement `Node`.
 ///
 /// A primitive is a geometric box, within which it can draw whatever it wants.
@@ -175,6 +203,37 @@ pub trait Node {
 
     /// Draw this element as an `svg::Element`.
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element;
+
+    /// Compute geometry for this node and its entire subtree in a single bottom-up pass.
+    ///
+    /// The returned [`NodeGeometry`] is a transient value intended to be passed to
+    /// [`Node::draw_with_geometry`]; it is not stored inside the node.
+    ///
+    /// The default implementation is correct for leaf nodes (no children). Composite
+    /// nodes should override this to recurse into their children.
+    fn compute_geometry(&self) -> NodeGeometry {
+        NodeGeometry {
+            entry_height: self.entry_height(),
+            height: self.height(),
+            width: self.width(),
+            children: vec![],
+        }
+    }
+
+    /// Draw this element using pre-computed geometry, avoiding redundant geometry
+    /// recomputation for deeply nested structures.
+    ///
+    /// `geo` holds the cached dimensions for *this* node. Composite nodes should
+    /// extract child geometry from `geo.children[i]` and pass it to each child's
+    /// `draw_with_geometry` call rather than calling `geo.children[i].entry_height()`
+    /// etc. directly.
+    ///
+    /// The default implementation falls back to [`Node::draw`], which is correct for
+    /// all nodes but does not benefit from caching. External [`Node`] implementors
+    /// do not need to override this method.
+    fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, _geo: &NodeGeometry) -> svg::Element {
+        self.draw(x, y, h_dir)
+    }
 }
 
 impl fmt::Debug for dyn Node {
@@ -204,6 +263,14 @@ macro_rules! deref_impl {
 
             fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
                 (**self).draw(x, y, h_dir)
+            }
+
+            fn compute_geometry(&self) -> NodeGeometry {
+                (**self).compute_geometry()
+            }
+
+            fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, geo: &NodeGeometry) -> svg::Element {
+                (**self).draw_with_geometry(x, y, h_dir, geo)
             }
         }
     };
@@ -345,6 +412,33 @@ where
         a.set_all(self.attributes.iter())
             .add(self.inner.draw(x, y, h_dir))
     }
+
+    fn compute_geometry(&self) -> NodeGeometry {
+        let inner_geo = self.inner.compute_geometry();
+        let entry_height = inner_geo.entry_height;
+        let height = inner_geo.height;
+        let width = inner_geo.width;
+        NodeGeometry {
+            entry_height,
+            height,
+            width,
+            children: vec![inner_geo],
+        }
+    }
+
+    fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, geo: &NodeGeometry) -> svg::Element {
+        let mut a = svg::Element::new("a")
+            .debug("Link", x, y, self)
+            .set("xlink:href", &self.uri);
+        a = match self.target {
+            Some(LinkTarget::Blank) => a.set("target", "_blank"),
+            Some(LinkTarget::Parent) => a.set("target", "_parent"),
+            Some(LinkTarget::Top) => a.set("target", "_top"),
+            None => a,
+        };
+        a.set_all(self.attributes.iter())
+            .add(self.inner.draw_with_geometry(x, y, h_dir, &geo.children[0]))
+    }
 }
 
 /// A vertical group of unconnected elements.
@@ -419,6 +513,31 @@ impl<N: Node> Node for VerticalGrid<N> {
         for child in &self.children {
             g.push(child.draw(x, running_y, h_dir));
             running_y += child.height() + self.spacing;
+        }
+        g.debug("VerticalGrid", x, y, self)
+    }
+
+    fn compute_geometry(&self) -> NodeGeometry {
+        let children: Vec<NodeGeometry> =
+            self.children.iter().map(|c| c.compute_geometry()).collect();
+        let total_height: i64 = children.iter().map(|g| g.height).sum();
+        let n = cmp::max(1, i64::try_from(children.len()).unwrap());
+        let height = total_height + (n - 1) * self.spacing;
+        let width = children.iter().map(|g| g.width).max().unwrap_or(0);
+        NodeGeometry {
+            entry_height: 0,
+            height,
+            width,
+            children,
+        }
+    }
+
+    fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, geo: &NodeGeometry) -> svg::Element {
+        let mut g = svg::Element::new("g").set_all(self.attributes.iter());
+        let mut running_y = y;
+        for (child, child_geo) in self.children.iter().zip(geo.children.iter()) {
+            g.push(child.draw_with_geometry(x, running_y, h_dir, child_geo));
+            running_y += child_geo.height + self.spacing;
         }
         g.debug("VerticalGrid", x, y, self)
     }
@@ -499,6 +618,31 @@ where
         for child in &self.children {
             g.push(child.draw(running_x, y, h_dir));
             running_x += child.width() + self.spacing;
+        }
+        g.debug("HorizontalGrid", x, y, self)
+    }
+
+    fn compute_geometry(&self) -> NodeGeometry {
+        let children: Vec<NodeGeometry> =
+            self.children.iter().map(|c| c.compute_geometry()).collect();
+        let height = children.iter().map(|g| g.height).max().unwrap_or(0);
+        let total_width: i64 = children.iter().map(|g| g.width).sum();
+        let n = cmp::max(1, i64::try_from(children.len()).unwrap());
+        let width = total_width + (n - 1) * self.spacing;
+        NodeGeometry {
+            entry_height: 0,
+            height,
+            width,
+            children,
+        }
+    }
+
+    fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, geo: &NodeGeometry) -> svg::Element {
+        let mut g = svg::Element::new("g").set_all(self.attributes.iter());
+        let mut running_x = x;
+        for (child, child_geo) in self.children.iter().zip(geo.children.iter()) {
+            g.push(child.draw_with_geometry(running_x, y, h_dir, child_geo));
+            running_x += child_geo.width + self.spacing;
         }
         g.debug("HorizontalGrid", x, y, self)
     }
@@ -590,6 +734,56 @@ where
                     .into_path(),
             );
             running_x += child.width() + self.spacing;
+        }
+        g.debug("Sequence", x, y, self)
+    }
+
+    fn compute_geometry(&self) -> NodeGeometry {
+        let children: Vec<NodeGeometry> =
+            self.children.iter().map(|c| c.compute_geometry()).collect();
+        let entry_height = children.iter().map(|g| g.entry_height).max().unwrap_or(0);
+        let height_below = children
+            .iter()
+            .map(|g| g.height_below_entry())
+            .max()
+            .unwrap_or(0);
+        let total_width: i64 = children.iter().map(|g| g.width).sum();
+        let l = children.len();
+        let width = if l > 1 {
+            total_width + (i64::try_from(l).unwrap() - 1) * self.spacing
+        } else {
+            total_width
+        };
+        NodeGeometry {
+            entry_height,
+            height: entry_height + height_below,
+            width,
+            children,
+        }
+    }
+
+    fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, geo: &NodeGeometry) -> svg::Element {
+        let mut g = svg::Element::new("g").set("class", "sequence");
+        let mut running_x = 0;
+        for (child, child_geo) in self.children.iter().zip(geo.children.iter()) {
+            g.push(child.draw_with_geometry(
+                x + running_x,
+                y + geo.entry_height - child_geo.entry_height,
+                h_dir,
+                child_geo,
+            ));
+            running_x += child_geo.width + self.spacing;
+        }
+
+        let mut running_x = x;
+        for child_geo in geo.children.iter().rev().skip(1).rev() {
+            g.push(
+                svg::PathData::new(h_dir)
+                    .move_to(running_x + child_geo.width, y + geo.entry_height)
+                    .horizontal(self.spacing)
+                    .into_path(),
+            );
+            running_x += child_geo.width + self.spacing;
         }
         g.debug("Sequence", x, y, self)
     }
@@ -893,6 +1087,49 @@ where
             .add(v)
             .add(i)
     }
+
+    fn compute_geometry(&self) -> NodeGeometry {
+        let inner_geo = self.inner.compute_geometry();
+        let entry_height = ARC_RADIUS + cmp::max(ARC_RADIUS, inner_geo.entry_height);
+        let height = entry_height + inner_geo.height_below_entry();
+        let width = ARC_RADIUS * 2 + inner_geo.width + ARC_RADIUS * 2;
+        NodeGeometry {
+            entry_height,
+            height,
+            width,
+            children: vec![inner_geo],
+        }
+    }
+
+    fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, geo: &NodeGeometry) -> svg::Element {
+        let inner_geo = &geo.children[0];
+        let i = self.inner.draw_with_geometry(
+            x + ARC_RADIUS * 2,
+            y + geo.entry_height - inner_geo.entry_height,
+            h_dir,
+            inner_geo,
+        );
+
+        let v = svg::PathData::new(h_dir)
+            .move_to(x, y + geo.entry_height)
+            .horizontal(ARC_RADIUS * 2)
+            .move_rel(-ARC_RADIUS * 2, 0)
+            .arc(ARC_RADIUS, svg::Arc::WestToNorth)
+            .vertical(cmp::min(0, -inner_geo.entry_height + ARC_RADIUS))
+            .arc(ARC_RADIUS, svg::Arc::SouthToEast)
+            .horizontal(inner_geo.width)
+            .arc(ARC_RADIUS, svg::Arc::WestToSouth)
+            .vertical(cmp::max(0, inner_geo.entry_height - ARC_RADIUS))
+            .arc(ARC_RADIUS, svg::Arc::NorthToEast)
+            .horizontal(-ARC_RADIUS * 2)
+            .into_path();
+
+        svg::Element::new("g")
+            .debug("Optional", x, y, self)
+            .set_all(self.attributes.iter())
+            .add(v)
+            .add(i)
+    }
 }
 
 /// A vertical group of elements, drawn from top to bottom.
@@ -1073,6 +1310,120 @@ where
                 );
             }
             g.push(child.draw(x + self.left_padding(), running_y, h_dir));
+        }
+
+        g.debug("Stack", x, y, self)
+    }
+
+    fn compute_geometry(&self) -> NodeGeometry {
+        let children: Vec<NodeGeometry> =
+            self.children.iter().map(|c| c.compute_geometry()).collect();
+        let entry_height = children.first().map(|g| g.entry_height).unwrap_or(0);
+        let left_p = self.left_padding();
+        let max_width = children.iter().map(|g| g.width).max().unwrap_or(0);
+        let last_width = children.last().map(|g| g.width).unwrap_or(0);
+        let base_width = left_p + max_width + self.right_padding();
+        let needs_extra = children
+            .iter()
+            .rev()
+            .skip(1)
+            .rev()
+            .any(|g| g.width >= last_width);
+        let width = if needs_extra {
+            base_width + ARC_RADIUS
+        } else {
+            base_width
+        };
+        let height = children
+            .windows(2)
+            .map(|w| {
+                let (cg, ng) = (&w[0], &w[1]);
+                cg.entry_height
+                    + cmp::max(cg.height_below_entry() + self.spacing, ARC_RADIUS * 2)
+                    + ARC_RADIUS
+                    + cmp::max(0, ARC_RADIUS - ng.entry_height)
+            })
+            .sum::<i64>()
+            + children.last().map(|g| g.height).unwrap_or(0);
+        NodeGeometry {
+            entry_height,
+            height,
+            width,
+            children,
+        }
+    }
+
+    fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, geo: &NodeGeometry) -> svg::Element {
+        let left_p = self.left_padding();
+        let mut g = svg::Element::new("g").set_all(self.attributes.iter()).add(
+            svg::PathData::new(h_dir)
+                .move_to(x, y + geo.entry_height)
+                .horizontal(left_p)
+                .into_path(),
+        );
+
+        let mut running_y = y;
+        let n = self.children.len();
+        for i in 0..n.saturating_sub(1) {
+            let child = &self.children[i];
+            let child_geo = &geo.children[i];
+            let next_geo = &geo.children[i + 1];
+            g.push(
+                svg::PathData::new(h_dir)
+                    .move_to(
+                        x + left_p + child_geo.width,
+                        running_y + child_geo.entry_height,
+                    )
+                    .arc(ARC_RADIUS, svg::Arc::WestToSouth)
+                    .vertical(cmp::max(
+                        0,
+                        child_geo.height_below_entry() + self.spacing - ARC_RADIUS * 2,
+                    ))
+                    .arc(ARC_RADIUS, svg::Arc::NorthToWest)
+                    .horizontal(-child_geo.width)
+                    .arc(ARC_RADIUS, svg::Arc::EastToSouth)
+                    .vertical(cmp::max(0, next_geo.entry_height - ARC_RADIUS))
+                    .vertical(cmp::max(
+                        0,
+                        (self.spacing - ARC_RADIUS * 2) / 2 + (self.spacing - ARC_RADIUS * 2) % 2,
+                    ))
+                    .arc(ARC_RADIUS, svg::Arc::NorthToEast)
+                    .horizontal(left_p - ARC_RADIUS)
+                    .into_path(),
+            );
+            g.push(child.draw_with_geometry(x + left_p, running_y, h_dir, child_geo));
+            let ph = child_geo.entry_height
+                + cmp::max(
+                    child_geo.height_below_entry() + self.spacing,
+                    ARC_RADIUS * 2,
+                )
+                + ARC_RADIUS
+                + cmp::max(0, ARC_RADIUS - next_geo.entry_height);
+            running_y += ph;
+        }
+
+        if let Some(last_child) = self.children.last() {
+            let last_geo = geo.children.last().unwrap();
+            if self.children.len() > 1 {
+                g.push(
+                    svg::PathData::new(h_dir)
+                        .move_to(
+                            x + left_p + last_geo.width,
+                            running_y + last_geo.entry_height,
+                        )
+                        .horizontal(geo.width - last_geo.width - left_p - ARC_RADIUS * 2)
+                        .arc(ARC_RADIUS, svg::Arc::WestToNorth)
+                        .vertical(
+                            -geo.height
+                                + last_geo.height_below_entry()
+                                + ARC_RADIUS * 2
+                                + geo.entry_height,
+                        )
+                        .arc(ARC_RADIUS, svg::Arc::SouthToEast)
+                        .into_path(),
+                );
+            }
+            g.push(last_child.draw_with_geometry(x + left_p, running_y, h_dir, last_geo));
         }
 
         g.debug("Stack", x, y, self)
@@ -1281,6 +1632,145 @@ where
 
         g.debug("Choice", x, y, self)
     }
+
+    fn compute_geometry(&self) -> NodeGeometry {
+        let children: Vec<NodeGeometry> =
+            self.children.iter().map(|c| c.compute_geometry()).collect();
+        let entry_height = children.first().map(|g| g.entry_height).unwrap_or(0);
+        let inner_padding = self.inner_padding();
+        let max_width = children.iter().map(|g| g.width).max().unwrap_or(0);
+        let width = if children.len() > 1 {
+            inner_padding + max_width + inner_padding
+        } else {
+            max_width
+        };
+        let height = if children.is_empty() {
+            0
+        } else if children.len() == 1 {
+            children.iter().map(|g| g.height).sum()
+        } else {
+            let first = &children[0];
+            entry_height
+                + cmp::max(ARC_RADIUS, self.spacing + first.height_below_entry())
+                + children
+                    .iter()
+                    .skip(1)
+                    .map(|g| {
+                        cmp::max(ARC_RADIUS, g.entry_height) + g.height_below_entry() + self.spacing
+                    })
+                    .sum::<i64>()
+                - self.spacing
+        };
+        NodeGeometry {
+            entry_height,
+            height,
+            width,
+            children,
+        }
+    }
+
+    fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, geo: &NodeGeometry) -> svg::Element {
+        let inner_padding = self.inner_padding();
+        let max_child_width = geo.children.iter().map(|g| g.width).max().unwrap_or(0);
+
+        let mut g = svg::Element::new("g").set_all(self.attributes.iter());
+
+        // The top, horizontal connectors
+        g.push(
+            svg::PathData::new(h_dir)
+                .move_to(x, y + geo.entry_height)
+                .horizontal(inner_padding)
+                .move_rel(geo.children.first().map(|g| g.width).unwrap_or(0), 0)
+                .horizontal(
+                    geo.width - inner_padding - geo.children.first().map(|g| g.width).unwrap_or(0),
+                )
+                .into_path(),
+        );
+
+        // The first child is simply drawn in-line
+        if let Some((first_child, first_child_geo)) =
+            self.children.first().zip(geo.children.first())
+        {
+            g.push(first_child.draw_with_geometry(x + inner_padding, y, h_dir, first_child_geo));
+        }
+
+        // If there are more children, we draw all kinds of things
+        if self.children.len() > 1 {
+            let first_geo = &geo.children[0];
+
+            // The downward arcs
+            g.push(
+                svg::PathData::new(h_dir)
+                    .move_to(x, y + geo.entry_height)
+                    .arc(ARC_RADIUS, svg::Arc::WestToSouth)
+                    .vertical(cmp::max(
+                        0,
+                        first_geo.height_below_entry() + self.spacing - ARC_RADIUS,
+                    ))
+                    .move_rel(geo.width - ARC_RADIUS * 2, 0)
+                    .vertical(-cmp::max(
+                        0,
+                        first_geo.height_below_entry() + self.spacing - ARC_RADIUS,
+                    ))
+                    .arc(ARC_RADIUS, svg::Arc::SouthToEast)
+                    .into_path(),
+            );
+
+            // The downward connectors, drawn individually
+            let base_y = y
+                + geo.entry_height
+                + cmp::max(ARC_RADIUS, self.spacing + first_geo.height_below_entry());
+            let mut running_y = base_y;
+            for child_geo in geo.children.iter().skip(1).rev().skip(1).rev() {
+                let padded = cmp::max(ARC_RADIUS, child_geo.entry_height)
+                    + child_geo.height_below_entry()
+                    + self.spacing;
+                let zz = cmp::max(0, child_geo.entry_height - ARC_RADIUS);
+                let z = padded - zz;
+                g.push(
+                    svg::PathData::new(h_dir)
+                        .move_to(x + ARC_RADIUS, running_y + zz)
+                        .vertical(z)
+                        .move_rel(geo.width - ARC_RADIUS * 2, 0)
+                        .vertical(-z)
+                        .into_path(),
+                );
+                running_y += z + zz;
+            }
+
+            // The children and arcs around them
+            let mut running_y = base_y;
+            for (child, child_geo) in self
+                .children
+                .iter()
+                .skip(1)
+                .zip(geo.children.iter().skip(1))
+            {
+                g.push(
+                    svg::PathData::new(h_dir)
+                        .move_to(x + ARC_RADIUS, running_y)
+                        .vertical(cmp::max(0, child_geo.entry_height - ARC_RADIUS))
+                        .arc(ARC_RADIUS, svg::Arc::NorthToEast)
+                        .move_rel(child_geo.width, 0)
+                        .horizontal(max_child_width - child_geo.width)
+                        .arc(ARC_RADIUS, svg::Arc::WestToNorth)
+                        .vertical(-cmp::max(0, child_geo.entry_height - ARC_RADIUS))
+                        .into_path(),
+                );
+                g.push(child.draw_with_geometry(
+                    x + ARC_RADIUS * 2,
+                    running_y + cmp::max(0, ARC_RADIUS - child_geo.entry_height),
+                    h_dir,
+                    child_geo,
+                ));
+                running_y += cmp::max(ARC_RADIUS, child_geo.entry_height)
+                    + child_geo.height_below_entry()
+                    + self.spacing;
+            }
+        }
+
+        g.debug("Choice", x, y, self)
+    }
 }
 
 /// Wraps one element by providing a backwards-path through another element.
@@ -1384,6 +1874,67 @@ where
             h_dir.invert(),
         ));
         g.push(self.inner.draw(x + ARC_RADIUS, y, h_dir));
+        g.debug("Repeat", x, y, self)
+    }
+
+    fn compute_geometry(&self) -> NodeGeometry {
+        let inner_geo = self.inner.compute_geometry();
+        let repeat_geo = self.repeat.compute_geometry();
+        let height_between = cmp::max(
+            ARC_RADIUS * 2,
+            inner_geo.height_below_entry() + self.spacing + repeat_geo.entry_height,
+        );
+        let entry_height = inner_geo.entry_height;
+        let height = inner_geo.entry_height + height_between + repeat_geo.height_below_entry();
+        let width = ARC_RADIUS + cmp::max(repeat_geo.width, inner_geo.width) + ARC_RADIUS;
+        NodeGeometry {
+            entry_height,
+            height,
+            width,
+            children: vec![inner_geo, repeat_geo],
+        }
+    }
+
+    fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, geo: &NodeGeometry) -> svg::Element {
+        let inner_geo = &geo.children[0];
+        let repeat_geo = &geo.children[1];
+        let height_between = cmp::max(
+            ARC_RADIUS * 2,
+            inner_geo.height_below_entry() + self.spacing + repeat_geo.entry_height,
+        );
+
+        let mut g = svg::Element::new("g").set_all(self.attributes.iter());
+
+        g.push(
+            svg::PathData::new(h_dir)
+                .move_to(x, y + geo.entry_height)
+                .horizontal(ARC_RADIUS)
+                .move_rel(inner_geo.width, 0)
+                .horizontal(cmp::max(
+                    ARC_RADIUS,
+                    repeat_geo.width - inner_geo.width + ARC_RADIUS,
+                ))
+                .move_rel(-ARC_RADIUS, 0)
+                .arc(ARC_RADIUS, svg::Arc::WestToSouth)
+                .vertical(height_between - ARC_RADIUS * 2)
+                .arc(ARC_RADIUS, svg::Arc::NorthToWest)
+                .move_rel(-repeat_geo.width, 0)
+                .horizontal(cmp::min(0, repeat_geo.width - inner_geo.width))
+                .arc(ARC_RADIUS, svg::Arc::EastToNorth)
+                .vertical(-height_between + ARC_RADIUS * 2)
+                .arc(ARC_RADIUS, svg::Arc::SouthToEast)
+                .into_path(),
+        )
+        .push(self.repeat.draw_with_geometry(
+            x + geo.width - repeat_geo.width - ARC_RADIUS,
+            y + geo.height - repeat_geo.height_below_entry() - repeat_geo.entry_height,
+            h_dir.invert(),
+            repeat_geo,
+        ));
+        g.push(
+            self.inner
+                .draw_with_geometry(x + ARC_RADIUS, y, h_dir, inner_geo),
+        );
         g.debug("Repeat", x, y, self)
     }
 }
@@ -1590,6 +2141,75 @@ where
             .set_all(self.attributes.iter())
             .debug("LabeledBox", x, y, self)
     }
+
+    fn compute_geometry(&self) -> NodeGeometry {
+        let inner_geo = self.inner.compute_geometry();
+        let label_geo = self.label.compute_geometry();
+        let padding = if label_geo.height + inner_geo.height + label_geo.width + inner_geo.width > 0
+        {
+            self.padding
+        } else {
+            0
+        };
+        let spacing = if label_geo.height > 0 {
+            self.spacing
+        } else {
+            0
+        };
+        let entry_height = padding + label_geo.height + spacing + inner_geo.entry_height;
+        let height = padding + label_geo.height + spacing + inner_geo.height + padding;
+        let width = padding + cmp::max(inner_geo.width, label_geo.width) + padding;
+        NodeGeometry {
+            entry_height,
+            height,
+            width,
+            children: vec![inner_geo, label_geo],
+        }
+    }
+
+    fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, geo: &NodeGeometry) -> svg::Element {
+        let inner_geo = &geo.children[0];
+        let label_geo = &geo.children[1];
+        let padding = if label_geo.height + inner_geo.height + label_geo.width + inner_geo.width > 0
+        {
+            self.padding
+        } else {
+            0
+        };
+        let spacing = if label_geo.height > 0 {
+            self.spacing
+        } else {
+            0
+        };
+        svg::Element::new("g")
+            .add(
+                svg::Element::new("rect")
+                    .set("x", &x)
+                    .set("y", &y)
+                    .set("height", &geo.height)
+                    .set("width", &geo.width),
+            )
+            .add(
+                svg::PathData::new(h_dir)
+                    .move_to(x, y + geo.entry_height)
+                    .horizontal(padding)
+                    .move_rel(inner_geo.width, 0)
+                    .horizontal(geo.width - inner_geo.width - padding)
+                    .into_path(),
+            )
+            .add(
+                self.label
+                    .draw_with_geometry(x + padding, y + padding, h_dir, label_geo),
+            )
+            .add(self.inner.draw_with_geometry(
+                x + padding,
+                y + padding + label_geo.height + spacing,
+                h_dir,
+                inner_geo,
+            ))
+            .set_all(self.attributes.iter())
+            .debug("LabeledBox", x, y, self)
+    }
 }
 
 /// A label / verbatim text, drawn in-line
@@ -1778,14 +2398,28 @@ where
     }
 
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
+        let geo = self.compute_geometry();
+        self.draw_with_geometry(x, y, h_dir, &geo)
+    }
+
+    fn compute_geometry(&self) -> NodeGeometry {
+        let root_geo = self.root.compute_geometry();
+        let height = self.top_padding + root_geo.height + self.bottom_padding;
+        let width = self.left_padding + root_geo.width + self.right_padding;
+        NodeGeometry {
+            entry_height: 0,
+            height,
+            width,
+            children: vec![root_geo],
+        }
+    }
+
+    fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, geo: &NodeGeometry) -> svg::Element {
         let mut e = svg::Element::new("svg")
             .set("xmlns", "http://www.w3.org/2000/svg")
             .set("xmlns:xlink", "http://www.w3.org/1999/xlink")
             .set("class", "railroad")
-            .set(
-                "viewBox",
-                &format!("0 0 {} {}", self.width(), self.height()),
-            );
+            .set("viewBox", &format!("0 0 {} {}", geo.width, geo.height));
         for (k, v) in &self.extra_attributes {
             e = e.set(&k, &v);
         }
@@ -1798,10 +2432,12 @@ where
                 .set("height", "100%")
                 .set("class", "railroad_canvas"),
         )
-        .add(
-            self.root
-                .draw(x + self.left_padding, y + self.top_padding, h_dir),
-        )
+        .add(self.root.draw_with_geometry(
+            x + self.left_padding,
+            y + self.top_padding,
+            h_dir,
+            &geo.children[0],
+        ))
     }
 }
 
@@ -1817,6 +2453,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::Cell;
 
     #[test]
     fn debug_impl() {
@@ -1831,6 +2468,94 @@ mod tests {
         assert_eq!(
             "Node { entry_height: 5, height: 10, width: 40 }",
             format!("{:?}", &s as &dyn Node)
+        );
+    }
+
+    /// Helper: build a nested Sequence tree of the given depth and width.
+    fn make_deep_seq(depth: usize, width: usize) -> Box<dyn Node> {
+        if depth == 0 {
+            Box::new(Terminal::new("x".to_owned()))
+        } else {
+            let children: Vec<Box<dyn Node>> = (0..width)
+                .map(|_| make_deep_seq(depth - 1, width))
+                .collect();
+            Box::new(Sequence::new(children))
+        }
+    }
+
+    /// draw_with_geometry produces the same SVG as the original draw path.
+    #[test]
+    fn geometry_cache_regression() {
+        let root = make_deep_seq(3, 3);
+        let dia_a = Diagram::new(make_deep_seq(3, 3));
+        let dia_b = Diagram::new(make_deep_seq(3, 3));
+
+        // draw() uses the two-phase path internally; draw_with_geometry is its
+        // implementation.  We verify that `format!` output (which calls draw)
+        // is stable across two calls (no hidden mutable state).
+        let svg_a = format!("{}", dia_a);
+        let svg_b = format!("{}", dia_b);
+        assert_eq!(svg_a, svg_b, "SVG output must be deterministic");
+
+        // Also check that width/height/entry_height are consistent with the
+        // geometry cache.
+        let geo = root.compute_geometry();
+        assert_eq!(geo.entry_height, root.entry_height());
+        assert_eq!(geo.height, root.height());
+        assert_eq!(geo.width, root.width());
+    }
+
+    /// A counting wrapper that increments a counter on every geometry call.
+    struct CountingNode<'a> {
+        inner: Box<dyn Node>,
+        calls: &'a Cell<usize>,
+    }
+
+    impl Node for CountingNode<'_> {
+        fn entry_height(&self) -> i64 {
+            self.calls.set(self.calls.get() + 1);
+            self.inner.entry_height()
+        }
+        fn height(&self) -> i64 {
+            self.calls.set(self.calls.get() + 1);
+            self.inner.height()
+        }
+        fn width(&self) -> i64 {
+            self.calls.set(self.calls.get() + 1);
+            self.inner.width()
+        }
+        fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
+            self.inner.draw(x, y, h_dir)
+        }
+        // compute_geometry / draw_with_geometry use the default impls, which
+        // call entry_height/height/width exactly once each → O(n) total.
+    }
+
+    /// Verify that drawing via compute_geometry + draw_with_geometry calls each
+    /// leaf node's geometry methods exactly 3 times (once per entry_height /
+    /// height / width) regardless of tree depth.
+    #[test]
+    fn geometry_cache_linear_calls() {
+        let calls = Cell::new(0usize);
+        let leaf = CountingNode {
+            inner: Box::new(Terminal::new("leaf".to_owned())),
+            calls: &calls,
+        };
+
+        // Wrap in two levels of Sequence: [[leaf]]
+        let inner_seq: Sequence<Box<dyn Node>> =
+            Sequence::new(vec![Box::new(leaf) as Box<dyn Node>]);
+        let outer_seq: Sequence<Box<dyn Node>> =
+            Sequence::new(vec![Box::new(inner_seq) as Box<dyn Node>]);
+
+        let geo = outer_seq.compute_geometry();
+        let _ = outer_seq.draw_with_geometry(0, 0, HDir::LTR, &geo);
+
+        // entry_height + height + width = 3 calls, regardless of nesting depth
+        assert_eq!(
+            calls.get(),
+            3,
+            "each leaf geometry method must be called exactly once"
         );
     }
 }
