@@ -316,7 +316,7 @@ impl ::std::fmt::Display for Element {
         let mut attrs = self.attributes.iter().collect::<Vec<_>>();
         attrs.sort_by_key(|(k, _)| *k);
         for (k, v) in attrs {
-            write!(f, " {k}=\"{v}\"")?;
+            write!(f, " {}=\"{}\"", encode_minimal(k), encode_minimal(v))?;
         }
         if self.text.is_none() && self.children.is_empty() {
             f.write_str("/>\n")?;
@@ -700,6 +700,51 @@ mod tests {
                 (expected, actual),
                 (Some(_), Cow::Owned(_)) | (None, Cow::Borrowed(_))
             ));
+        }
+    }
+
+    const PAYLOADS: &[&str] = &[
+        r#""><script>alert(1)</script>"#,
+        r#"' onload='alert(1)"#,
+        r#"&lt;not-an-entity"#,
+        r#"</style><script>bad</script>"#,
+        r#"foo & bar"#,
+        r#"foo"bar"#,
+    ];
+
+    /// Attribute values containing special characters must not appear verbatim in SVG output.
+    #[test]
+    fn element_attribute_value_no_injection() {
+        for payload in PAYLOADS {
+            let svg = format!("{}", super::Element::new("g").set("data-x", *payload));
+            assert!(
+                !svg.contains(payload),
+                "raw payload appeared in SVG for value {payload:?}"
+            );
+        }
+    }
+
+    /// Attribute keys containing special characters must not appear verbatim in SVG output.
+    #[test]
+    fn element_attribute_key_no_injection() {
+        for payload in PAYLOADS {
+            let svg = format!("{}", super::Element::new("g").set(*payload, "value"));
+            assert!(
+                !svg.contains(payload),
+                "raw payload appeared in SVG for key {payload:?}"
+            );
+        }
+    }
+
+    /// Text content set via `.text()` must be escaped.
+    #[test]
+    fn element_text_no_injection() {
+        for payload in PAYLOADS {
+            let svg = format!("{}", super::Element::new("text").text(payload));
+            assert!(
+                !svg.contains(payload),
+                "raw payload appeared in SVG text for {payload:?}"
+            );
         }
     }
 }

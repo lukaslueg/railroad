@@ -2558,4 +2558,67 @@ mod tests {
             "each leaf geometry method must be called exactly once"
         );
     }
+
+    const PAYLOADS: &[&str] = &[
+        r#""><script>alert(1)</script>"#,
+        r#"' onload='alert(1)"#,
+        r#"foo & bar"#,
+        r#"</style><script>bad</script>"#,
+        r#"foo"bar"#,
+    ];
+
+    fn assert_no_payload(svg: &str, payload: &str) {
+        assert!(
+            !svg.contains(payload),
+            "raw payload {payload:?} found in SVG output"
+        );
+    }
+
+    /// Terminal and NonTerminal labels are rendered as SVG text content.
+    #[test]
+    fn terminal_label_no_injection() {
+        for payload in PAYLOADS {
+            let svg = format!("{}", Diagram::new(Terminal::new(payload.to_string())));
+            assert_no_payload(&svg, payload);
+            let svg = format!("{}", Diagram::new(NonTerminal::new(payload.to_string())));
+            assert_no_payload(&svg, payload);
+        }
+    }
+
+    /// Comment text is rendered as SVG text content.
+    #[test]
+    fn comment_text_no_injection() {
+        for payload in PAYLOADS {
+            let svg = format!("{}", Diagram::new(Comment::new(payload.to_string())));
+            assert_no_payload(&svg, payload);
+        }
+    }
+
+    /// Link URIs end up in an xlink:href attribute.
+    #[test]
+    fn link_uri_no_injection() {
+        for payload in PAYLOADS {
+            let node = Link::new(Empty, payload.to_string());
+            let svg = format!("{}", Diagram::new(node));
+            assert_no_payload(&svg, payload);
+        }
+    }
+
+    /// User-supplied attribute keys and values (via `.attr()`) must be escaped.
+    #[test]
+    fn node_attr_no_injection() {
+        for payload in PAYLOADS {
+            // Dangerous value
+            let mut t = Terminal::new("x".to_owned());
+            t.attr("data-x".to_owned()).or_insert(payload.to_string());
+            let svg = format!("{}", Diagram::new(t));
+            assert_no_payload(&svg, payload);
+
+            // Dangerous key
+            let mut t = Terminal::new("x".to_owned());
+            t.attr(payload.to_string()).or_insert("value".to_owned());
+            let svg = format!("{}", Diagram::new(t));
+            assert_no_payload(&svg, payload);
+        }
+    }
 }
