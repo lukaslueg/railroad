@@ -4,25 +4,42 @@ use std::{
     fmt::{self, Write},
 };
 
-/// A shorthand to draw rounded corners, see `PathData::arc`.
+/// A shorthand to draw rounded corners, see [`PathData::arc`].
+///
+/// Each variant names the direction the path is traveling *before* the corner
+/// (the compass point it comes from) and the direction *after* the corner
+/// (the compass point it heads toward).
 #[derive(Debug, Clone, Copy)]
 pub enum Arc {
+    /// Traveling east, turn to go north (curve up-left).
     EastToNorth,
+    /// Traveling east, turn to go south (curve down-left).
     EastToSouth,
+    /// Traveling north, turn to go east (curve right-down).
     NorthToEast,
+    /// Traveling north, turn to go west (curve left-down).
     NorthToWest,
+    /// Traveling south, turn to go east (curve right-up).
     SouthToEast,
+    /// Traveling south, turn to go west (curve left-up).
     SouthToWest,
+    /// Traveling west, turn to go north (curve up-right).
     WestToNorth,
+    /// Traveling west, turn to go south (curve down-right).
     WestToSouth,
 }
 
-/// Selects the direction in which arrows on positive direction horizontal
+/// Selects the direction in which arrows on positive-direction horizontal
 /// lines point.
+///
+/// `LTR` (left-to-right) is the default and suits most diagrams. `RTL` is used
+/// for the return arc inside [`crate::Repeat`].
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum HDir {
+    /// Arrows point rightward (the default).
     #[default]
     LTR,
+    /// Arrows point leftward.
     RTL,
 }
 
@@ -37,14 +54,29 @@ impl HDir {
     }
 }
 
-/// A builder-struct for SVG-Paths
+/// A builder for SVG path `d` attribute strings.
+///
+/// All drawing methods take `self` by value and return `self`, enabling
+/// method chaining. Call [`PathData::into_path`] when done to obtain a
+/// `<path>` [`Element`].
+///
+/// # Example
+/// ```
+/// use railroad::notactuallysvg as svg;
+///
+/// let path = svg::PathData::new(svg::HDir::LTR)
+///     .move_to(0, 10)
+///     .horizontal(40)
+///     .into_path();
+/// assert!(path.to_string().contains("M 0 10"));
+/// ```
 pub struct PathData {
     text: String,
     h_dir: HDir,
 }
 
 impl PathData {
-    /// Construct a empty `PathData`
+    /// Construct an empty `PathData` with the given horizontal direction.
     #[must_use]
     pub fn new(h_dir: HDir) -> Self {
         Self {
@@ -53,34 +85,38 @@ impl PathData {
         }
     }
 
-    /// Convert to a `Element` of type `path` and fill it's data-attribute
+    /// Consume this builder and return a `<path>` [`Element`] whose `d` attribute
+    /// contains the accumulated path data.
     #[must_use]
     pub fn into_path(self) -> Element {
         Element::new("path").set("d", &self.text)
     }
 
-    /// Move the cursor to this absolute position without drawing anything
+    /// Move the cursor to the absolute position `(x, y)` without drawing.
     #[must_use]
     pub fn move_to(mut self, x: i64, y: i64) -> Self {
         write!(self.text, " M {x} {y}").unwrap();
         self
     }
 
-    /// Move the cursor relative to the current position without drawing anything
+    /// Move the cursor by `(x, y)` relative to the current position without drawing.
     #[must_use]
     pub fn move_rel(mut self, x: i64, y: i64) -> Self {
         write!(self.text, " m {x} {y}").unwrap();
         self
     }
 
-    /// Draw a line from the cursor's current location to the given relative position
+    /// Draw a line from the cursor's current position to the relative offset `(x, y)`.
     #[must_use]
     pub fn line_rel(mut self, x: i64, y: i64) -> Self {
         write!(self.text, " l {x} {y}").unwrap();
         self
     }
 
-    /// Draw a horizontal section from the cursor's current position
+    /// Draw a horizontal segment of length `h` from the cursor's current position.
+    ///
+    /// For segments longer than 50 pixels an arrowhead is automatically added at
+    /// the midpoint, pointing in the diagram's [`HDir`] direction.
     #[must_use]
     pub fn horizontal(mut self, h: i64) -> Self {
         write!(self.text, " h {h}").unwrap();
@@ -114,7 +150,10 @@ impl PathData {
         }
     }
 
-    /// Draw a vertical section from the cursor's current position
+    /// Draw a vertical segment of height `h` from the cursor's current position.
+    ///
+    /// For segments taller than 50 pixels a downward arrowhead is automatically
+    /// added at the midpoint.
     #[must_use]
     pub fn vertical(mut self, h: i64) -> Self {
         write!(self.text, " v {h}").unwrap();
@@ -136,7 +175,9 @@ impl PathData {
         }
     }
 
-    /// Draw a rounded corner using the given radius and direction
+    /// Draw a quarter-circle arc of the given `radius` in the given direction.
+    ///
+    /// See [`Arc`] for the available corner directions.
     #[must_use]
     pub fn arc(mut self, radius: i64, kind: Arc) -> Self {
         let (sweep, x, y) = match kind {
@@ -340,8 +381,20 @@ impl ::std::fmt::Display for Element {
     }
 }
 
-/// Entity-encode the bare minimum of the given string (`"`, `&`, `<`, `>`, `'`) to allow
-/// safely using that string as pure text in an SVG.
+/// Escape the bare minimum of characters (`"`, `&`, `<`, `>`, `'`) needed to
+/// safely embed `inp` as text content or a double-quoted attribute value in SVG/HTML.
+///
+/// Returns a [`Cow::Borrowed`] slice when no escaping is required (i.e. when
+/// `inp` contains none of the five special characters), avoiding an allocation.
+///
+/// # Example
+/// ```
+/// use railroad::notactuallysvg::encode_minimal;
+///
+/// assert_eq!(encode_minimal("hello"), "hello");
+/// assert_eq!(encode_minimal("a & b"), "a &amp; b");
+/// assert_eq!(encode_minimal("<b>"), "&lt;b&gt;");
+/// ```
 #[must_use]
 pub fn encode_minimal(inp: &str) -> Cow<'_, str> {
     let mut buf = String::new();
@@ -627,7 +680,15 @@ const ENTITIES: [Option<&'static str>; 256] = [
     Some("&#xFF;"),
 ];
 
-/// Encode the given string to allow safely using that string as an attribute-value.
+/// Encode all single-byte characters in `inp` as HTML numeric entities.
+///
+/// This is a stricter alternative to [`encode_minimal`] that encodes every
+/// ASCII byte (including spaces, semicolons, dashes, etc.) as an HTML entity.
+/// Multi-byte Unicode codepoints are passed through unchanged.
+///
+/// Prefer [`encode_minimal`] for double-quoted XML attribute values in SVG;
+/// use this function only when full byte-level escaping is required (e.g.,
+/// for unquoted attribute values or legacy HTML contexts).
 #[must_use]
 pub fn encode_attribute(inp: &str) -> Cow<'_, str> {
     let mut buf = String::new();

@@ -160,14 +160,20 @@ pub const DEFAULT_CSS: &str = Stylesheet::Light.stylesheet();
 /// Leaf nodes have an empty `children` vec.
 #[derive(Debug, Clone)]
 pub struct NodeGeometry {
+    /// The vertical distance from this node's top edge to its connecting path.
     pub entry_height: i64,
+    /// The total height of this node's bounding box.
     pub height: i64,
+    /// The total width of this node's bounding box.
     pub width: i64,
+    /// Pre-computed geometry for each child, in draw order.
     pub children: Vec<NodeGeometry>,
 }
 
 impl NodeGeometry {
     /// The vertical distance from the connecting path to the bottom of this node.
+    ///
+    /// Equivalent to `height - entry_height`.
     #[must_use]
     pub fn height_below_entry(&self) -> i64 {
         self.height - self.entry_height
@@ -197,11 +203,16 @@ pub trait Node {
     fn width(&self) -> i64;
 
     /// The vertical distance from the height of the connecting path to the bottom.
+    ///
+    /// Equivalent to `height() - entry_height()`.
     fn height_below_entry(&self) -> i64 {
         self.height() - self.entry_height()
     }
 
-    /// Draw this element as an `svg::Element`.
+    /// Draw this element as an `svg::Element` at the given position and direction.
+    ///
+    /// The element must fit entirely within the bounding box defined by `(x, y)`,
+    /// `width()`, and `height()`, with the connecting path at `y + entry_height()`.
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element;
 
     /// Compute geometry for this node and its entire subtree in a single bottom-up pass.
@@ -345,11 +356,16 @@ where
 }
 
 /// Possible targets for `Link`.
+///
+/// Maps to the HTML `target` attribute on the generated `<a>` element.
 #[derive(Debug, Default, Clone, Copy)]
 pub enum LinkTarget {
+    /// Open in a new tab (`target="_blank"`).
     #[default]
     Blank,
+    /// Open in the parent frame (`target="_parent"`).
     Parent,
+    /// Open in the topmost frame (`target="_top"`).
     Top,
 }
 
@@ -363,6 +379,18 @@ pub struct Link<N> {
 }
 
 impl<N> Link<N> {
+    /// Wrap `inner` in a clickable link pointing to `uri`.
+    ///
+    /// The URI is placed in an SVG anchor attribute and is HTML-escaped before
+    /// being written into the SVG, so arbitrary strings are safe to pass.
+    ///
+    /// # Example
+    /// ```rust
+    /// use railroad::*;
+    ///
+    /// let node = Link::new(Terminal::new("docs".to_owned()), "https://example.com".to_owned());
+    /// assert!(Diagram::new(node).to_string().starts_with("<svg"));
+    /// ```
     pub fn new(inner: N, uri: String) -> Self {
         let mut l = Self {
             inner,
@@ -374,7 +402,9 @@ impl<N> Link<N> {
         l
     }
 
-    /// Set the target-attribute
+    /// Set the `target` attribute for the generated `<a>` element.
+    ///
+    /// Pass `None` to remove any previously set target.
     pub fn set_target(&mut self, target: Option<LinkTarget>) {
         self.target = target;
     }
@@ -450,6 +480,10 @@ pub struct VerticalGrid<N> {
 }
 
 impl<N> VerticalGrid<N> {
+    /// Create a `VerticalGrid` containing `children`, laid out top-to-bottom.
+    ///
+    /// Children are spaced by a fixed amount. They are not connected by
+    /// any path; use [`Stack`] for connected vertical sequences.
     #[must_use]
     pub fn new(children: Vec<N>) -> Self {
         let mut v = Self {
@@ -461,11 +495,13 @@ impl<N> VerticalGrid<N> {
         v
     }
 
+    /// Append a child and return `&mut self` for chaining.
     pub fn push(&mut self, child: N) -> &mut Self {
         self.children.push(child);
         self
     }
 
+    /// Unwrap this grid, returning the children in order.
     #[must_use]
     pub fn into_inner(self) -> Vec<N> {
         self.children
@@ -552,6 +588,10 @@ pub struct HorizontalGrid<N> {
 }
 
 impl<N> HorizontalGrid<N> {
+    /// Create a `HorizontalGrid` containing `children`, laid out left-to-right.
+    ///
+    /// Children are spaced by a fixed amount. They are not connected by
+    /// any path; use [`Sequence`] for connected horizontal sequences.
     #[must_use]
     pub fn new(children: Vec<N>) -> Self {
         let mut h = Self {
@@ -563,11 +603,13 @@ impl<N> HorizontalGrid<N> {
         h
     }
 
+    /// Append a child and return `&mut self` for chaining.
     pub fn push(&mut self, child: N) -> &mut Self {
         self.children.push(child);
         self
     }
 
+    /// Unwrap this grid, returning the children in order.
     #[must_use]
     pub fn into_inner(self) -> Vec<N> {
         self.children
@@ -658,6 +700,21 @@ pub struct Sequence<N> {
 }
 
 impl<N> Sequence<N> {
+    /// Create a `Sequence` from an ordered list of children.
+    ///
+    /// The children are connected left-to-right with a horizontal path segment
+    /// between adjacent elements.
+    ///
+    /// # Example
+    /// ```rust
+    /// use railroad::*;
+    ///
+    /// let seq: Sequence<Box<dyn Node>> = Sequence::new(vec![
+    ///     Box::new(Start),
+    ///     Box::new(End),
+    /// ]);
+    /// assert!(Diagram::new(seq).to_string().starts_with("<svg"));
+    /// ```
     #[must_use]
     pub fn new(children: Vec<N>) -> Self {
         Self {
@@ -666,11 +723,21 @@ impl<N> Sequence<N> {
         }
     }
 
+    /// Append a child and return `&mut self` for chaining.
+    ///
+    /// # Example
+    /// ```rust
+    /// use railroad::*;
+    ///
+    /// let mut seq: Sequence<Box<dyn Node>> = Sequence::default();
+    /// seq.push(Box::new(Start)).push(Box::new(End));
+    /// ```
     pub fn push(&mut self, child: N) -> &mut Self {
         self.children.push(child);
         self
     }
 
+    /// Unwrap this sequence, returning the children in order.
     #[must_use]
     pub fn into_inner(self) -> Vec<N> {
         self.children
@@ -910,6 +977,17 @@ pub struct Terminal {
 }
 
 impl Terminal {
+    /// Construct a `Terminal` with the given visible label.
+    ///
+    /// The label is HTML-escaped when rendered, so arbitrary text is safe to pass.
+    ///
+    /// # Example
+    /// ```rust
+    /// use railroad::*;
+    ///
+    /// let t = Terminal::new("BEGIN".to_owned());
+    /// assert!(Diagram::new(t).to_string().contains("BEGIN"));
+    /// ```
     #[must_use]
     pub fn new(label: String) -> Self {
         let mut t = Self {
@@ -966,6 +1044,17 @@ pub struct NonTerminal {
 }
 
 impl NonTerminal {
+    /// Construct a `NonTerminal` with the given visible label.
+    ///
+    /// The label is HTML-escaped when rendered, so arbitrary text is safe to pass.
+    ///
+    /// # Example
+    /// ```rust
+    /// use railroad::*;
+    ///
+    /// let nt = NonTerminal::new("expression".to_owned());
+    /// assert!(Diagram::new(nt).to_string().contains("expression"));
+    /// ```
     #[must_use]
     pub fn new(label: String) -> Self {
         let mut nt = Self {
@@ -1024,6 +1113,15 @@ pub struct Optional<N> {
 }
 
 impl<N> Optional<N> {
+    /// Wrap `inner` so it can be skipped via an upper bypass path.
+    ///
+    /// # Example
+    /// ```rust
+    /// use railroad::*;
+    ///
+    /// let node = Optional::new(Terminal::new("maybe".to_owned()));
+    /// assert!(Diagram::new(node).to_string().starts_with("<svg"));
+    /// ```
     pub fn new(inner: N) -> Self {
         let mut o = Self {
             inner,
@@ -1034,6 +1132,7 @@ impl<N> Optional<N> {
         o
     }
 
+    /// Unwrap this wrapper, returning the inner node.
     pub fn into_inner(self) -> N {
         self.inner
     }
@@ -1145,6 +1244,21 @@ pub struct Stack<N> {
 }
 
 impl<N> Stack<N> {
+    /// Create a `Stack` from an ordered list of children.
+    ///
+    /// Children are connected top-to-bottom: the path exits the right side of
+    /// each child, curves down, and re-enters from the left for the next child.
+    ///
+    /// # Example
+    /// ```rust
+    /// use railroad::*;
+    ///
+    /// let stack = Stack::new(vec![
+    ///     Terminal::new("line 1".to_owned()),
+    ///     Terminal::new("line 2".to_owned()),
+    /// ]);
+    /// assert!(Diagram::new(stack).to_string().starts_with("<svg"));
+    /// ```
     #[must_use]
     pub fn new(children: Vec<N>) -> Self {
         let mut s = Self {
@@ -1155,10 +1269,12 @@ impl<N> Stack<N> {
         s
     }
 
+    /// Append a child to this stack.
     pub fn push(&mut self, child: N) {
         self.children.push(child);
     }
 
+    /// Unwrap this stack, returning the children in order.
     #[must_use]
     pub fn into_inner(self) -> Vec<N> {
         self.children
@@ -1442,6 +1558,21 @@ pub struct Choice<N> {
 }
 
 impl<N> Choice<N> {
+    /// Create a `Choice` from an ordered list of alternatives.
+    ///
+    /// The first child is drawn inline (on the main path); additional children
+    /// are drawn below, reachable via downward arcs.
+    ///
+    /// # Example
+    /// ```rust
+    /// use railroad::*;
+    ///
+    /// let choice = Choice::new(vec![
+    ///     Terminal::new("A".to_owned()),
+    ///     Terminal::new("B".to_owned()),
+    /// ]);
+    /// assert!(Diagram::new(choice).to_string().starts_with("<svg"));
+    /// ```
     #[must_use]
     pub fn new(children: Vec<N>) -> Self {
         let mut c = Self {
@@ -1452,6 +1583,7 @@ impl<N> Choice<N> {
         c
     }
 
+    /// Append an alternative child.
     pub fn push(&mut self, child: N) {
         self.children.push(child);
     }
@@ -1461,6 +1593,7 @@ impl<N> Choice<N> {
         self.attributes.entry(key)
     }
 
+    /// Unwrap this choice, returning the children in order.
     #[must_use]
     pub fn into_inner(self) -> Vec<N> {
         self.children
@@ -1774,6 +1907,11 @@ where
 }
 
 /// Wraps one element by providing a backwards-path through another element.
+///
+/// The main path flows through `inner` left-to-right. A return arc curves below
+/// and carries the path through `repeat` right-to-left, allowing the sequence to
+/// be traversed multiple times. Use [`Empty`] for `repeat` when no label or
+/// content is needed on the return path.
 #[derive(Debug, Clone)]
 pub struct Repeat<I, R> {
     inner: I,
@@ -1783,6 +1921,16 @@ pub struct Repeat<I, R> {
 }
 
 impl<I, R> Repeat<I, R> {
+    /// Create a `Repeat` that loops `inner` via the `repeat` node on the return path.
+    ///
+    /// # Example
+    /// ```rust
+    /// use railroad::*;
+    ///
+    /// // Zero-or-more repetitions with no label on the back-arc
+    /// let r = Repeat::new(Terminal::new("item".to_owned()), Empty);
+    /// assert!(Diagram::new(r).to_string().starts_with("<svg"));
+    /// ```
     pub fn new(inner: I, repeat: R) -> Self {
         let mut r = Self {
             inner,
@@ -2031,13 +2179,28 @@ pub struct LabeledBox<T, U> {
 }
 
 impl<T> LabeledBox<T, Empty> {
-    /// Construct a box with a label set to `Empty`
+    /// Construct a `LabeledBox` around `inner` with no label.
+    ///
+    /// This is a convenience shorthand for `LabeledBox::new(inner, Empty)`.
     pub fn without_label(inner: T) -> Self {
         Self::new(inner, Empty)
     }
 }
 
 impl<T, U> LabeledBox<T, U> {
+    /// Construct a `LabeledBox` that draws a border around `inner` and places
+    /// `label` above it inside the box.
+    ///
+    /// # Example
+    /// ```rust
+    /// use railroad::*;
+    ///
+    /// let labeled = LabeledBox::new(
+    ///     Terminal::new("item".to_owned()),
+    ///     Comment::new("group".to_owned()),
+    /// );
+    /// assert!(Diagram::new(labeled).to_string().starts_with("<svg"));
+    /// ```
     pub fn new(inner: T, label: U) -> Self {
         let mut l = Self {
             inner,
@@ -2212,7 +2375,10 @@ where
     }
 }
 
-/// A label / verbatim text, drawn in-line
+/// A label / verbatim text drawn inline on the connecting path.
+///
+/// Useful as a label for [`LabeledBox`] or as a lightweight annotation
+/// within a [`Sequence`].
 #[derive(Debug, Clone)]
 pub struct Comment {
     text: String,
@@ -2220,6 +2386,17 @@ pub struct Comment {
 }
 
 impl Comment {
+    /// Construct a `Comment` with the given text.
+    ///
+    /// The text is HTML-escaped when rendered, so arbitrary strings are safe to pass.
+    ///
+    /// # Example
+    /// ```rust
+    /// use railroad::*;
+    ///
+    /// let c = Comment::new("/* note */".to_owned());
+    /// assert!(Diagram::new(c).to_string().contains("/* note */"));
+    /// ```
     #[must_use]
     pub fn new(text: String) -> Self {
         let mut c = Self {
@@ -2258,6 +2435,27 @@ impl Node for Comment {
     }
 }
 
+/// The top-level container that renders a node tree as a complete SVG document.
+///
+/// `Diagram` wraps a root [`Node`], computes its geometry, and emits a
+/// self-contained `<svg>` element. CSS stylesheets and arbitrary extra SVG
+/// elements can be injected before drawing.
+///
+/// The `fmt::Display` implementation (and [`Diagram::write`]) both use the
+/// two-phase geometry caching pipeline internally, so rendering is O(n) in
+/// the number of nodes.
+///
+/// # Example
+/// ```rust
+/// use railroad::*;
+///
+/// let dia = Diagram::new_with_stylesheet(
+///     Sequence::new(vec![Box::new(Start) as Box<dyn Node>, Box::new(End)]),
+///     &Stylesheet::Light,
+/// );
+/// let svg = dia.to_string();
+/// assert!(svg.starts_with("<svg"));
+/// ```
 #[derive(Debug, Clone)]
 pub struct Diagram<N> {
     root: N,
@@ -2321,6 +2519,7 @@ impl<N: Node> Diagram<N> {
         dia
     }
 
+    /// Add the CSS for `style` as an additional `<style>` element.
     pub fn add_stylesheet(&mut self, style: &Stylesheet) {
         self.add_css(style.stylesheet());
     }
@@ -2358,7 +2557,7 @@ impl<N: Node> Diagram<N> {
         write!(writer, "{}", self.draw(0, 0, HDir::LTR))
     }
 
-    /// Return the root-element this diagram's root element
+    /// Unwrap this diagram, returning the root node.
     pub fn into_inner(self) -> N {
         self.root
     }
