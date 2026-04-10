@@ -12,10 +12,9 @@ edition = "2024"
 
 [features]
 default = [ "resvg" ]
+# Enables the `Debug` node for visual layout debugging and exposes
+# `node_test_utils` for testing `Node` implementations.
 visual-debug = []
-# Exposes `node_test_utils` for downstream crates that implement `Node` and
-# want to test their implementations using this crate's geometry helpers.
-testing = []
 
 [dependencies]
 unicode-width = "0.2"
@@ -27,6 +26,10 @@ railroad_verification = "0.1"
 [[example]]
 name = "render"
 required-features = [ "resvg" ]
+
+[[test]]
+name = "geometry"
+required-features = [ "visual-debug" ]
 
 [package.metadata.docs.rs]
 features = [ "resvg" ]

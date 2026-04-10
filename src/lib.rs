@@ -1824,8 +1824,7 @@ where
 /// geometry.
 ///
 /// Downstream crates that implement [`Node`] can use this module by adding
-/// this crate as a dev-dependency (with the `testing` feature if desired for
-/// an explicit opt-in).
+/// this crate as a dev-dependency with the `visual-debug` feature enabled.
 ///
 /// # Example
 /// ```rust,no_run
@@ -1840,6 +1839,7 @@ where
 /// node_test_utils::check_invariants(&seq);
 /// node_test_utils::assert_node_geometry(&seq, 15, 25, 80);
 /// ```
+#[cfg(any(test, feature = "visual-debug"))]
 pub mod node_test_utils {
     use super::Node;
 
@@ -1853,6 +1853,7 @@ pub mod node_test_utils {
     ///
     /// # Panics
     /// Panics (with a descriptive message) if any invariant is violated.
+    #[track_caller]
     pub fn check_invariants(node: &dyn Node) {
         let eh = node.entry_height();
         let h = node.height();
@@ -1876,6 +1877,7 @@ pub mod node_test_utils {
     ///
     /// # Panics
     /// Panics if any value does not match, printing both expected and actual.
+    #[track_caller]
     pub fn assert_node_geometry(node: &dyn Node, entry_height: i64, height: i64, width: i64) {
         assert_eq!(
             node.entry_height(),
