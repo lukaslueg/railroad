@@ -13,6 +13,9 @@ edition = "2024"
 [features]
 default = [ "resvg" ]
 visual-debug = []
+# Exposes `node_test_utils` for downstream crates that implement `Node` and
+# want to test their implementations using this crate's geometry helpers.
+testing = []
 
 [dependencies]
 unicode-width = "0.2"

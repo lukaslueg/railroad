@@ -1814,6 +1814,90 @@ where
     }
 }
 
+/// Utilities for testing [`Node`] implementations.
+///
+/// This module provides functions and types useful for testing the geometric
+/// properties of types that implement [`Node`]. The [`Debug`] node, which has
+/// fully configurable geometry and draws a simple bounding-box rectangle, is
+/// the recommended building block: wrap one or more `Debug` nodes in a
+/// container (e.g. [`Sequence`], [`Choice`], …) and assert on the container's
+/// geometry.
+///
+/// Downstream crates that implement [`Node`] can use this module by adding
+/// this crate as a dev-dependency (with the `testing` feature if desired for
+/// an explicit opt-in).
+///
+/// # Example
+/// ```rust,no_run
+/// use railroad::{Debug, Sequence, Node, node_test_utils};
+///
+/// // A sequence of two explicitly-sized nodes.
+/// let seq = Sequence::new(vec![
+///     Box::new(Debug::new(10, 20, 30)) as Box<dyn Node>,
+///     Box::new(Debug::new(15, 25, 40)),
+/// ]);
+///
+/// node_test_utils::check_invariants(&seq);
+/// node_test_utils::assert_node_geometry(&seq, 15, 25, 80);
+/// ```
+pub mod node_test_utils {
+    use super::Node;
+
+    /// Verify that `node` satisfies the basic geometric invariants required
+    /// of every [`Node`] implementation:
+    ///
+    /// * `entry_height()` ≥ 0
+    /// * `height()` ≥ 0
+    /// * `width()` ≥ 0
+    /// * `height()` ≥ `entry_height()` (so that `height_below_entry()` is non-negative)
+    ///
+    /// # Panics
+    /// Panics (with a descriptive message) if any invariant is violated.
+    pub fn check_invariants(node: &dyn Node) {
+        let eh = node.entry_height();
+        let h = node.height();
+        let w = node.width();
+        assert!(
+            eh >= 0,
+            "Node::entry_height() must be non-negative, got {eh}"
+        );
+        assert!(h >= 0, "Node::height() must be non-negative, got {h}");
+        assert!(w >= 0, "Node::width() must be non-negative, got {w}");
+        assert!(
+            h >= eh,
+            "Node::height() ({h}) must be >= Node::entry_height() ({eh})"
+        );
+    }
+
+    /// Assert that `node` has exactly the given geometry.
+    ///
+    /// Checks [`Node::entry_height`], [`Node::height`], and [`Node::width`]
+    /// against the supplied expected values.
+    ///
+    /// # Panics
+    /// Panics if any value does not match, printing both expected and actual.
+    pub fn assert_node_geometry(node: &dyn Node, entry_height: i64, height: i64, width: i64) {
+        assert_eq!(
+            node.entry_height(),
+            entry_height,
+            "entry_height mismatch (expected {entry_height}, got {})",
+            node.entry_height()
+        );
+        assert_eq!(
+            node.height(),
+            height,
+            "height mismatch (expected {height}, got {})",
+            node.height()
+        );
+        assert_eq!(
+            node.width(),
+            width,
+            "width mismatch (expected {width}, got {})",
+            node.width()
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
