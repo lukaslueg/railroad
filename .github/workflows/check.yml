@@ -6,7 +6,7 @@ jobs:
   fmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -15,7 +15,7 @@ jobs:
   clippy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -26,7 +26,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - run: |
           cargo test
@@ -35,10 +35,27 @@ jobs:
           cargo test --features visual-debug -- --ignored
           cargo test --features resvg -- --ignored
 
+  examples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - run: sudo apt-get update && sudo apt-get install -y fonts-dejavu-core
+      - run: cargo run --example visuals
+      - run: cargo run --example render --features resvg
+      - uses: actions/upload-artifact@v7
+        with:
+          name: examples
+          path: |
+            examples/column_constraint.png
+            examples/create_table_stmt.png
+            examples/render.png
+            examples/visuals.html
+
   semver:
     name: Semver check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - run: sudo apt update && sudo apt install -y cmake
       - uses: obi1kenobi/cargo-semver-checks-action@v2
