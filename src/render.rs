@@ -116,3 +116,91 @@ pub fn to_png(svg_src: &str, fit_to: &FitTo) -> Result<Vec<u8>, Error> {
         .map_err(|e| Error::Encoding(e.to_string()))?;
     Ok(png_buf)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Diagram, Stylesheet, Terminal};
+
+    const PNG_MAGIC: [u8; 4] = [0x89, 0x50, 0x4e, 0x47];
+
+    fn make_svg() -> String {
+        Diagram::new_with_stylesheet(
+            Terminal::new("test".to_owned()),
+            &Stylesheet::LightRendersafe,
+        )
+        .to_string()
+    }
+
+    // --- FitTo::from_size ---
+
+    #[test]
+    fn fit_to_from_size_width_only() {
+        assert_eq!(FitTo::from_size(Some(800), None), FitTo::MaxWidth(800));
+    }
+
+    #[test]
+    fn fit_to_from_size_height_only() {
+        assert_eq!(FitTo::from_size(None, Some(600)), FitTo::MaxHeight(600));
+    }
+
+    #[test]
+    fn fit_to_from_size_both() {
+        assert_eq!(
+            FitTo::from_size(Some(800), Some(600)),
+            FitTo::MaxSize {
+                width: 800,
+                height: 600
+            }
+        );
+    }
+
+    #[test]
+    fn fit_to_from_size_neither() {
+        assert_eq!(FitTo::from_size(None, None), FitTo::default());
+    }
+
+    // --- to_png happy path ---
+
+    #[test]
+    fn to_png_max_width_produces_valid_png() {
+        let svg = make_svg();
+        let result = to_png(&svg, &FitTo::MaxWidth(200)).unwrap();
+        assert!(result.starts_with(&PNG_MAGIC), "output is not a PNG");
+    }
+
+    #[test]
+    fn to_png_max_height_produces_valid_png() {
+        let svg = make_svg();
+        let result = to_png(&svg, &FitTo::MaxHeight(200)).unwrap();
+        assert!(result.starts_with(&PNG_MAGIC), "output is not a PNG");
+    }
+
+    #[test]
+    fn to_png_max_size_produces_valid_png() {
+        let svg = make_svg();
+        let result = to_png(
+            &svg,
+            &FitTo::MaxSize {
+                width: 200,
+                height: 200,
+            },
+        )
+        .unwrap();
+        assert!(result.starts_with(&PNG_MAGIC), "output is not a PNG");
+    }
+
+    // --- to_png error paths ---
+
+    #[test]
+    fn to_png_invalid_xml_returns_xml_parse_error() {
+        let result = to_png("not xml at all <<<", &FitTo::default());
+        assert!(matches!(result, Err(Error::XMLParse(_))));
+    }
+
+    #[test]
+    fn to_png_valid_xml_not_svg_returns_svg_parse_error() {
+        let result = to_png("<foo/>", &FitTo::default());
+        assert!(matches!(result, Err(Error::SVGParse(_))));
+    }
+}
