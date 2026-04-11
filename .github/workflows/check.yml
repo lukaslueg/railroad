@@ -30,10 +30,14 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: |
           cargo test
+          cargo test --features visual-debug
+          cargo test --features resvg
+          cargo test --features resvg,visual-debug
           sudo apt-get update && sudo apt-get install -y libxml2-utils
           cargo test -- --ignored
           cargo test --features visual-debug -- --ignored
           cargo test --features resvg -- --ignored
+          cargo test --features resvg,visual-debug -- --ignored
 
   examples:
     runs-on: ubuntu-latest

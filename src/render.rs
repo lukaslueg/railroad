@@ -165,28 +165,45 @@ mod tests {
     #[test]
     fn to_png_max_width_produces_valid_png() {
         let svg = make_svg();
-        let result = to_png(&svg, &FitTo::MaxWidth(200)).unwrap();
+        let result = match to_png(&svg, &FitTo::MaxWidth(200)) {
+            Ok(buf) => buf,
+            Err(e) => {
+                eprintln!("{}", svg);
+                panic!("to_png failed with error: {:?}", e);
+            }
+        };
         assert!(result.starts_with(&PNG_MAGIC), "output is not a PNG");
     }
 
     #[test]
     fn to_png_max_height_produces_valid_png() {
         let svg = make_svg();
-        let result = to_png(&svg, &FitTo::MaxHeight(200)).unwrap();
+        let result = match to_png(&svg, &FitTo::MaxHeight(200)) {
+            Ok(buf) => buf,
+            Err(e) => {
+                eprintln!("{}", svg);
+                panic!("to_png failed with error: {:?}", e);
+            }
+        };
         assert!(result.starts_with(&PNG_MAGIC), "output is not a PNG");
     }
 
     #[test]
     fn to_png_max_size_produces_valid_png() {
         let svg = make_svg();
-        let result = to_png(
+        let result = match to_png(
             &svg,
             &FitTo::MaxSize {
                 width: 200,
                 height: 200,
             },
-        )
-        .unwrap();
+        ) {
+            Ok(buf) => buf,
+            Err(e) => {
+                eprintln!("{}", svg);
+                panic!("to_png failed with error: {:?}", e);
+            }
+        };
         assert!(result.starts_with(&PNG_MAGIC), "output is not a PNG");
     }
 

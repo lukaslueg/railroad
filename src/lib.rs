@@ -2619,6 +2619,11 @@ where
             .set("xmlns:xlink", "http://www.w3.org/1999/xlink")
             .set("class", "railroad")
             .set("viewBox", &format!("0 0 {} {}", geo.width, geo.height));
+
+        #[cfg(feature = "visual-debug")]
+        {
+            e = e.set("xmlns:railroad", "http://www.github.com/lukaslueg/railroad");
+        }
         for (k, v) in &self.extra_attributes {
             e = e.set(&k, &v);
         }
@@ -2650,9 +2655,70 @@ where
 }
 
 #[cfg(test)]
-mod tests {
+#[cfg(not(feature = "visual-debug"))]
+mod tests_without_visual_debug {
     use super::*;
     use std::cell::Cell;
+
+    /// A counting wrapper that increments a counter on every geometry call.
+    struct CountingNode<'a> {
+        inner: Box<dyn Node>,
+        calls: &'a Cell<usize>,
+    }
+
+    impl Node for CountingNode<'_> {
+        fn entry_height(&self) -> i64 {
+            self.calls.set(self.calls.get() + 1);
+            self.inner.entry_height()
+        }
+        fn height(&self) -> i64 {
+            self.calls.set(self.calls.get() + 1);
+            self.inner.height()
+        }
+        fn width(&self) -> i64 {
+            self.calls.set(self.calls.get() + 1);
+            self.inner.width()
+        }
+        fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
+            self.inner.draw(x, y, h_dir)
+        }
+        // compute_geometry / draw_with_geometry use the default impls, which
+        // call entry_height/height/width exactly once each → O(n) total.
+    }
+
+    /// Verify that drawing via compute_geometry + draw_with_geometry calls each
+    /// leaf node's geometry methods exactly 3 times (once per entry_height /
+    /// height / width) regardless of tree depth.
+    #[test]
+    #[cfg(not(feature = "visual-debug"))]
+    fn geometry_cache_linear_calls() {
+        let calls = Cell::new(0usize);
+        let leaf = CountingNode {
+            inner: Box::new(Terminal::new("leaf".to_owned())),
+            calls: &calls,
+        };
+
+        // Wrap in two levels of Sequence: [[leaf]]
+        let inner_seq: Sequence<Box<dyn Node>> =
+            Sequence::new(vec![Box::new(leaf) as Box<dyn Node>]);
+        let outer_seq: Sequence<Box<dyn Node>> =
+            Sequence::new(vec![Box::new(inner_seq) as Box<dyn Node>]);
+
+        let geo = outer_seq.compute_geometry();
+        let _ = outer_seq.draw_with_geometry(0, 0, HDir::LTR, &geo);
+
+        // entry_height + height + width = 3 calls, regardless of nesting depth
+        assert_eq!(
+            calls.get(),
+            3,
+            "each leaf geometry method must be called exactly once"
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
 
     #[test]
     fn debug_impl() {
@@ -2702,60 +2768,6 @@ mod tests {
         assert_eq!(geo.entry_height, root.entry_height());
         assert_eq!(geo.height, root.height());
         assert_eq!(geo.width, root.width());
-    }
-
-    /// A counting wrapper that increments a counter on every geometry call.
-    struct CountingNode<'a> {
-        inner: Box<dyn Node>,
-        calls: &'a Cell<usize>,
-    }
-
-    impl Node for CountingNode<'_> {
-        fn entry_height(&self) -> i64 {
-            self.calls.set(self.calls.get() + 1);
-            self.inner.entry_height()
-        }
-        fn height(&self) -> i64 {
-            self.calls.set(self.calls.get() + 1);
-            self.inner.height()
-        }
-        fn width(&self) -> i64 {
-            self.calls.set(self.calls.get() + 1);
-            self.inner.width()
-        }
-        fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
-            self.inner.draw(x, y, h_dir)
-        }
-        // compute_geometry / draw_with_geometry use the default impls, which
-        // call entry_height/height/width exactly once each → O(n) total.
-    }
-
-    /// Verify that drawing via compute_geometry + draw_with_geometry calls each
-    /// leaf node's geometry methods exactly 3 times (once per entry_height /
-    /// height / width) regardless of tree depth.
-    #[test]
-    fn geometry_cache_linear_calls() {
-        let calls = Cell::new(0usize);
-        let leaf = CountingNode {
-            inner: Box::new(Terminal::new("leaf".to_owned())),
-            calls: &calls,
-        };
-
-        // Wrap in two levels of Sequence: [[leaf]]
-        let inner_seq: Sequence<Box<dyn Node>> =
-            Sequence::new(vec![Box::new(leaf) as Box<dyn Node>]);
-        let outer_seq: Sequence<Box<dyn Node>> =
-            Sequence::new(vec![Box::new(inner_seq) as Box<dyn Node>]);
-
-        let geo = outer_seq.compute_geometry();
-        let _ = outer_seq.draw_with_geometry(0, 0, HDir::LTR, &geo);
-
-        // entry_height + height + width = 3 calls, regardless of nesting depth
-        assert_eq!(
-            calls.get(),
-            3,
-            "each leaf geometry method must be called exactly once"
-        );
     }
 
     const PAYLOADS: &[&str] = &[
