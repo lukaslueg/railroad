@@ -20,10 +20,15 @@ resvg = { version = "0.47", optional=true, features=["text", "system-fonts", "me
 
 [dev-dependencies]
 railroad_verification = "0.1"
+criterion = "0.8"
 
 [[example]]
 name = "render"
 required-features = [ "resvg" ]
+
+[[bench]]
+name = "svg_generation"
+harness = false
 
 [package.metadata.docs.rs]
 features = [ "resvg" ]
