@@ -54,6 +54,278 @@ impl HDir {
     }
 }
 
+/// A lightweight streaming SVG writer used by the render path.
+///
+/// `Renderer` writes directly into a [`fmt::Write`] sink and centralizes
+/// element/tag emission, text escaping, and path serialization.
+///
+/// # Example
+/// ```rust
+/// use std::fmt;
+/// use railroad::notactuallysvg as svg;
+///
+/// fn build(out: &mut dyn fmt::Write) -> fmt::Result {
+///     let mut renderer = svg::Renderer::new(out);
+///     let mut g = renderer.start_element("g")?;
+///     g.attr("class", "demo")?;
+///     g.finish()?;
+///     renderer.text_element("text", "hello <world>", |t| {
+///         t.attr("x", 10)?;
+///         t.attr("y", 20)
+///     })?;
+///     renderer.end_element("g")
+/// }
+///
+/// let mut out = String::new();
+/// build(&mut out).unwrap();
+/// assert!(out.contains("<g class=\"demo\">"));
+/// assert!(out.contains("hello &lt;world&gt;"));
+/// ```
+pub struct Renderer<'a> {
+    out: &'a mut dyn fmt::Write,
+}
+
+/// A builder for an element's opening tag.
+///
+/// Instances are created by [`Renderer::start_element`] and allow callers to
+/// append attributes before completing the tag with [`StartTag::finish`] or
+/// [`StartTag::finish_empty`].
+pub struct StartTag<'a, 'b> {
+    renderer: &'a mut Renderer<'b>,
+}
+
+struct EscapingWriter<'a> {
+    out: &'a mut dyn fmt::Write,
+}
+
+impl<'a> Renderer<'a> {
+    /// Create a renderer that writes SVG markup into `out`.
+    pub fn new(out: &'a mut dyn fmt::Write) -> Self {
+        Self { out }
+    }
+
+    /// Start an element opening tag.
+    ///
+    /// Returns [`fmt::Error`] if `name` is not a valid XML tag name according to
+    /// this renderer's conservative validation rules.
+    ///
+    /// # Example
+    /// ```rust
+    /// use std::fmt;
+    /// use railroad::notactuallysvg as svg;
+    ///
+    /// fn build(out: &mut dyn fmt::Write) -> fmt::Result {
+    ///     let mut renderer = svg::Renderer::new(out);
+    ///     let mut circle = renderer.start_element("circle")?;
+    ///     circle.attr("r", 5)?;
+    ///     circle.finish_empty()
+    /// }
+    ///
+    /// let mut out = String::new();
+    /// build(&mut out).unwrap();
+    /// assert_eq!(out, "<circle r=\"5\"/>\n");
+    /// ```
+    pub fn start_element<'b>(&'b mut self, name: &str) -> Result<StartTag<'b, 'a>, fmt::Error> {
+        validate_tag_name(name)?;
+        self.out.write_char('<')?;
+        self.out.write_str(name)?;
+        Ok(StartTag { renderer: self })
+    }
+
+    /// Write a closing tag for `name`.
+    ///
+    /// Returns [`fmt::Error`] if `name` does not pass tag validation.
+    pub fn end_element(&mut self, name: &str) -> fmt::Result {
+        validate_tag_name(name)?;
+        self.out.write_str("</")?;
+        self.out.write_str(name)?;
+        self.out.write_str(">\n")
+    }
+
+    /// Write text content with minimal XML escaping.
+    pub fn write_text(&mut self, text: &str) -> fmt::Result {
+        let mut escaping = EscapingWriter { out: self.out };
+        escaping.write_str(text)
+    }
+
+    /// Write raw text without any escaping.
+    ///
+    /// Callers should only use this for trusted markup or CSS.
+    pub fn write_raw(&mut self, text: &str) -> fmt::Result {
+        self.out.write_str(text)
+    }
+
+    /// Write any [`fmt::Display`] value directly into the output stream.
+    pub fn write_display(&mut self, display: impl fmt::Display) -> fmt::Result {
+        write!(self.out, "{display}")
+    }
+
+    /// Write a `<path>` element whose `d` attribute comes from `path`.
+    pub fn path(&mut self, path: &PathData) -> fmt::Result {
+        let mut tag = self.start_element("path")?;
+        tag.attr("d", path)?;
+        tag.finish_empty()
+    }
+
+    /// Write a `<path>` element with an additional `class` attribute.
+    pub fn path_with_class(&mut self, path: &PathData, class: &str) -> fmt::Result {
+        let mut tag = self.start_element("path")?;
+        tag.attr("d", path)?;
+        tag.attr("class", class)?;
+        tag.finish_empty()
+    }
+
+    /// Write a text-bearing element whose body is escaped.
+    ///
+    /// The `configure` callback may add attributes to the opening tag before the
+    /// element is closed.
+    ///
+    /// # Example
+    /// ```rust
+    /// use std::fmt;
+    /// use railroad::notactuallysvg as svg;
+    ///
+    /// fn build(out: &mut dyn fmt::Write) -> fmt::Result {
+    ///     let mut renderer = svg::Renderer::new(out);
+    ///     renderer.text_element("text", "a < b", |tag| {
+    ///         tag.attr("x", 5)?;
+    ///         tag.attr("y", 10)
+    ///     })
+    /// }
+    ///
+    /// let mut out = String::new();
+    /// build(&mut out).unwrap();
+    /// assert_eq!(out, "<text x=\"5\" y=\"10\">\na &lt; b</text>\n");
+    /// ```
+    pub fn text_element(
+        &mut self,
+        name: &str,
+        text: &str,
+        configure: impl FnOnce(&mut StartTag<'_, 'a>) -> fmt::Result,
+    ) -> fmt::Result {
+        let mut tag = self.start_element(name)?;
+        configure(&mut tag)?;
+        tag.finish()?;
+        self.write_text(text)?;
+        self.end_element(name)
+    }
+
+    /// Write a text-bearing element whose body is not escaped.
+    ///
+    /// This is intended for trusted raw SVG or CSS content.
+    ///
+    /// # Example
+    /// ```rust
+    /// use std::fmt;
+    /// use railroad::notactuallysvg as svg;
+    ///
+    /// fn build(out: &mut dyn fmt::Write) -> fmt::Result {
+    ///     let mut renderer = svg::Renderer::new(out);
+    ///     renderer.raw_text_element("style", "text { fill: red < blue; }", |tag| {
+    ///         tag.attr("type", "text/css")
+    ///     })
+    /// }
+    ///
+    /// let mut out = String::new();
+    /// build(&mut out).unwrap();
+    /// assert_eq!(out, "<style type=\"text/css\">\ntext { fill: red < blue; }</style>\n");
+    /// ```
+    pub fn raw_text_element(
+        &mut self,
+        name: &str,
+        text: &str,
+        configure: impl FnOnce(&mut StartTag<'_, 'a>) -> fmt::Result,
+    ) -> fmt::Result {
+        let mut tag = self.start_element(name)?;
+        configure(&mut tag)?;
+        tag.finish()?;
+        self.write_raw(text)?;
+        self.end_element(name)
+    }
+}
+
+impl StartTag<'_, '_> {
+    /// Add a single attribute to the opening tag.
+    ///
+    /// Both key and value are minimally XML-escaped before being written.
+    pub fn attr(&mut self, key: impl fmt::Display, value: impl fmt::Display) -> fmt::Result {
+        self.renderer.out.write_char(' ')?;
+        {
+            let mut escaping = EscapingWriter {
+                out: self.renderer.out,
+            };
+            write!(&mut escaping, "{key}")?;
+        }
+        self.renderer.out.write_str("=\"")?;
+        {
+            let mut escaping = EscapingWriter {
+                out: self.renderer.out,
+            };
+            write!(&mut escaping, "{value}")?;
+        }
+        self.renderer.out.write_char('"')
+    }
+
+    /// Add all attributes from a map in deterministic key order.
+    pub fn attr_hashmap(&mut self, attrs: &HashMap<String, String>) -> fmt::Result {
+        let mut attrs = attrs.iter().collect::<Vec<_>>();
+        attrs.sort_by_key(|(k, _)| *k);
+        for (key, value) in attrs {
+            self.attr(key, value)?;
+        }
+        Ok(())
+    }
+
+    /// Finish the opening tag as a non-empty element.
+    pub fn finish(self) -> fmt::Result {
+        self.renderer.out.write_str(">\n")
+    }
+
+    /// Finish the opening tag as an empty element.
+    ///
+    /// # Example
+    /// ```rust
+    /// use std::fmt;
+    /// use railroad::notactuallysvg as svg;
+    ///
+    /// fn build(out: &mut dyn fmt::Write) -> fmt::Result {
+    ///     let mut renderer = svg::Renderer::new(out);
+    ///     let mut rect = renderer.start_element("rect")?;
+    ///     rect.attr("width", "100%")?;
+    ///     rect.attr("height", "100%")?;
+    ///     rect.finish_empty()
+    /// }
+    ///
+    /// let mut out = String::new();
+    /// build(&mut out).unwrap();
+    /// assert_eq!(out, "<rect width=\"100%\" height=\"100%\"/>\n");
+    /// ```
+    pub fn finish_empty(self) -> fmt::Result {
+        self.renderer.out.write_str("/>\n")
+    }
+}
+
+impl fmt::Write for EscapingWriter<'_> {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        write_escaped_minimal(self.out, s)
+    }
+}
+
+fn validate_tag_name(name: &str) -> fmt::Result {
+    let mut chars = name.chars();
+    let Some(first) = chars.next() else {
+        return Err(fmt::Error);
+    };
+    if !(first.is_ascii_alphabetic() || first == '_' || first == ':') {
+        return Err(fmt::Error);
+    }
+    if chars.all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | ':' | '-' | '.')) {
+        Ok(())
+    } else {
+        Err(fmt::Error)
+    }
+}
+
 /// A builder for SVG path `d` attribute strings.
 ///
 /// All drawing methods take `self` by value and return `self`, enabling
@@ -430,6 +702,29 @@ impl ::std::fmt::Display for Element {
     }
 }
 
+fn minimal_entity(c: char) -> Option<&'static str> {
+    match c {
+        '"' => Some("&quot;"),
+        '&' => Some("&amp;"),
+        '<' => Some("&lt;"),
+        '>' => Some("&gt;"),
+        '\'' => Some("&#x27;"),
+        _ => None,
+    }
+}
+
+fn write_escaped_minimal(f: &mut (impl fmt::Write + ?Sized), inp: &str) -> fmt::Result {
+    let mut last_idx = 0;
+    for (idx, c) in inp.char_indices() {
+        if let Some(entity) = minimal_entity(c) {
+            f.write_str(&inp[last_idx..idx])?;
+            f.write_str(entity)?;
+            last_idx = idx + 1;
+        }
+    }
+    f.write_str(&inp[last_idx..])
+}
+
 /// Escape the bare minimum of characters (`"`, `&`, `<`, `>`, `'`) needed to
 /// safely embed `inp` as text content or a double-quoted attribute value in SVG/HTML.
 ///
@@ -449,14 +744,7 @@ pub fn encode_minimal(inp: &str) -> Cow<'_, str> {
     let mut buf = String::new();
     let mut last_idx = 0;
     for (idx, c) in inp.char_indices() {
-        if let Some(entity) = match c {
-            '"' => Some("&quot;"),
-            '&' => Some("&amp;"),
-            '<' => Some("&lt;"),
-            '>' => Some("&gt;"),
-            '\'' => Some("&#x27;"),
-            _ => None,
-        } {
+        if let Some(entity) = minimal_entity(c) {
             buf.push_str(&inp[last_idx..idx]);
             buf.push_str(entity);
             last_idx = idx + 1;
@@ -855,6 +1143,22 @@ mod tests {
                 !svg.contains(payload),
                 "raw payload appeared in SVG text for {payload:?}"
             );
+        }
+    }
+
+    #[test]
+    fn renderer_rejects_invalid_tag_names() {
+        for payload in [
+            "",
+            "path onclick=\"alert(1)\"",
+            "path><script>",
+            "9path",
+            "svg tag",
+        ] {
+            let mut output = String::new();
+            let mut renderer = super::Renderer::new(&mut output);
+            assert!(renderer.start_element(payload).is_err());
+            assert!(renderer.end_element(payload).is_err());
         }
     }
 }
