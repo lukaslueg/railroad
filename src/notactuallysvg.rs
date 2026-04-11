@@ -321,6 +321,20 @@ impl Element {
         self
     }
 
+    #[cfg(not(feature = "visual-debug"))]
+    #[allow(unused_variables)]
+    #[doc(hidden)]
+    #[must_use]
+    pub fn debug_with_geometry(
+        self,
+        name: &str,
+        x: i64,
+        y: i64,
+        geo: &super::NodeGeometry,
+    ) -> Self {
+        self
+    }
+
     /// Adds some basic textual and visual debugging information to this Element
     #[cfg(feature = "visual-debug")]
     pub fn debug(self, name: &str, x: i64, y: i64, n: &dyn super::Node) -> Self {
@@ -344,6 +358,41 @@ impl Element {
                             .horizontal(5)
                             .move_rel(-5, -n.height())
                             .move_rel(0, n.entry_height())
+                            .horizontal(10),
+                    )
+                    .set("class", "debug"),
+            )
+    }
+
+    /// Adds debug information using cached geometry instead of querying the node again.
+    #[cfg(feature = "visual-debug")]
+    pub fn debug_with_geometry(
+        self,
+        name: &str,
+        x: i64,
+        y: i64,
+        geo: &super::NodeGeometry,
+    ) -> Self {
+        self.set("railroad:type", &name)
+            .set("railroad:x", &x)
+            .set("railroad:y", &y)
+            .set("railroad:entry_height", &geo.entry_height)
+            .set("railroad:height", &geo.height)
+            .set("railroad:width", &geo.width)
+            .add(Element::new("title").text(name))
+            .append(
+                Element::new("path")
+                    .set(
+                        "d",
+                        &PathData::new(HDir::LTR)
+                            .move_to(x, y)
+                            .horizontal(geo.width)
+                            .vertical(5)
+                            .move_rel(-geo.width, -5)
+                            .vertical(geo.height)
+                            .horizontal(5)
+                            .move_rel(-5, -geo.height)
+                            .move_rel(0, geo.entry_height)
                             .horizontal(10),
                     )
                     .set("class", "debug"),

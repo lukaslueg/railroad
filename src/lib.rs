@@ -458,7 +458,7 @@ where
 
     fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, geo: &NodeGeometry) -> svg::Element {
         let mut a = svg::Element::new("a")
-            .debug("Link", x, y, self)
+            .debug_with_geometry("Link", x, y, geo)
             .set("xlink:href", &self.uri);
         a = match self.target {
             Some(LinkTarget::Blank) => a.set("target", "_blank"),
@@ -575,7 +575,7 @@ impl<N: Node> Node for VerticalGrid<N> {
             g.push(child.draw_with_geometry(x, running_y, h_dir, child_geo));
             running_y += child_geo.height + self.spacing;
         }
-        g.debug("VerticalGrid", x, y, self)
+        g.debug_with_geometry("VerticalGrid", x, y, geo)
     }
 }
 
@@ -686,7 +686,7 @@ where
             g.push(child.draw_with_geometry(running_x, y, h_dir, child_geo));
             running_x += child_geo.width + self.spacing;
         }
-        g.debug("HorizontalGrid", x, y, self)
+        g.debug_with_geometry("HorizontalGrid", x, y, geo)
     }
 }
 
@@ -852,7 +852,7 @@ where
             );
             running_x += child_geo.width + self.spacing;
         }
-        g.debug("Sequence", x, y, self)
+        g.debug_with_geometry("Sequence", x, y, geo)
     }
 }
 
@@ -1224,7 +1224,7 @@ where
             .into_path();
 
         svg::Element::new("g")
-            .debug("Optional", x, y, self)
+            .debug_with_geometry("Optional", x, y, geo)
             .set_all(self.attributes.iter())
             .add(v)
             .add(i)
@@ -1542,7 +1542,7 @@ where
             g.push(last_child.draw_with_geometry(x + left_p, running_y, h_dir, last_geo));
         }
 
-        g.debug("Stack", x, y, self)
+        g.debug_with_geometry("Stack", x, y, geo)
     }
 }
 
@@ -1902,7 +1902,7 @@ where
             }
         }
 
-        g.debug("Choice", x, y, self)
+        g.debug_with_geometry("Choice", x, y, geo)
     }
 }
 
@@ -2083,7 +2083,7 @@ where
             self.inner
                 .draw_with_geometry(x + ARC_RADIUS, y, h_dir, inner_geo),
         );
-        g.debug("Repeat", x, y, self)
+        g.debug_with_geometry("Repeat", x, y, geo)
     }
 }
 
@@ -2371,7 +2371,7 @@ where
                 inner_geo,
             ))
             .set_all(self.attributes.iter())
-            .debug("LabeledBox", x, y, self)
+            .debug_with_geometry("LabeledBox", x, y, geo)
     }
 }
 
@@ -2690,7 +2690,6 @@ mod tests_without_visual_debug {
     /// leaf node's geometry methods exactly 3 times (once per entry_height /
     /// height / width) regardless of tree depth.
     #[test]
-    #[cfg(not(feature = "visual-debug"))]
     fn geometry_cache_linear_calls() {
         let calls = Cell::new(0usize);
         let leaf = CountingNode {
@@ -2712,6 +2711,63 @@ mod tests_without_visual_debug {
             calls.get(),
             3,
             "each leaf geometry method must be called exactly once"
+        );
+    }
+}
+
+#[cfg(test)]
+#[cfg(feature = "visual-debug")]
+mod tests_with_visual_debug {
+    use super::*;
+    use std::cell::Cell;
+
+    /// A counting wrapper that increments a counter on every geometry call.
+    struct CountingNode<'a> {
+        inner: Box<dyn Node>,
+        calls: &'a Cell<usize>,
+    }
+
+    impl Node for CountingNode<'_> {
+        fn entry_height(&self) -> i64 {
+            self.calls.set(self.calls.get() + 1);
+            self.inner.entry_height()
+        }
+        fn height(&self) -> i64 {
+            self.calls.set(self.calls.get() + 1);
+            self.inner.height()
+        }
+        fn width(&self) -> i64 {
+            self.calls.set(self.calls.get() + 1);
+            self.inner.width()
+        }
+        fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
+            self.inner.draw(x, y, h_dir)
+        }
+        // compute_geometry / draw_with_geometry use the default impls, which
+        // call entry_height/height/width exactly once each when cached geometry
+        // is threaded through the visual-debug path correctly.
+    }
+
+    #[test]
+    fn visual_debug_geometry_cache_linear_calls() {
+        let calls = Cell::new(0usize);
+        let leaf = CountingNode {
+            inner: Box::new(Terminal::new("leaf".to_owned())),
+            calls: &calls,
+        };
+
+        let mut nested: Box<dyn Node> = Box::new(leaf);
+        for _ in 0..8 {
+            nested = Box::new(Sequence::new(vec![nested]));
+        }
+
+        let geo = nested.compute_geometry();
+        let _ = nested.draw_with_geometry(0, 0, HDir::LTR, &geo);
+
+        assert_eq!(
+            calls.get(),
+            3,
+            "visual-debug must not trigger extra geometry calls during draw_with_geometry"
         );
     }
 }
