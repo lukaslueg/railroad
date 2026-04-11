@@ -16,7 +16,7 @@ visual-debug = []
 
 [dependencies]
 unicode-width = "0.2"
-resvg = { version = "0.45", optional=true, features=["text", "system-fonts", "memmap-fonts"] }
+resvg = { version = "0.47", optional=true, features=["text", "system-fonts", "memmap-fonts"] }
 
 [dev-dependencies]
 railroad_verification = "0.1"
