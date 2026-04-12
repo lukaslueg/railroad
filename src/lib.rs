@@ -53,6 +53,21 @@
 //! dia.render(&mut renderer, 0, 0, svg::HDir::LTR).unwrap();
 //! assert!(streamed.starts_with("<svg"));
 //! ```
+//!
+//! ## Implementing custom nodes
+//!
+//! Downstream crates can implement [`Node`] directly for custom primitives.
+//! The main rule is simple: a node must only draw within the geometry it
+//! advertises. If a node reports `width()`, `height()`, and `entry_height()`,
+//! its drawing must stay inside that box and keep its connecting path at
+//! `y + entry_height()`.
+//!
+//! For simple leaf nodes, implementing `entry_height()`, `height()`, `width()`,
+//! and [`Node::draw`] is usually enough; the provided geometry-aware methods are
+//! correct by default. For composite nodes that position child nodes, override
+//! [`Node::compute_geometry`] and usually also [`Node::draw_with_geometry`] and
+//! [`Node::render_with_geometry`] so child geometry is computed once and reused
+//! during rendering.
 
 use std::{
     collections::{self, HashMap},
@@ -190,31 +205,58 @@ impl NodeGeometry {
     }
 }
 
-/// A diagram is built from a set of primitives which implement `Node`.
+/// A diagram primitive that participates in layout and SVG generation.
 ///
-/// A primitive is a geometric box, within which it can draw whatever it wants.
-/// Simple primitives (e.g. `Start`) have fixed width, height etc.. Complex
-/// primitives, which wrap other primitives (e.g. `Sequence`), use the methods
-/// defined here to compute their own geometry. When the time comes for a primitive
-/// to be drawn, the wrapping primitive computes the desired location of the wrapped
-/// primitive(s) and calls `.draw()` on them. It is the primitive's job
-/// to ensure that it uses only the space it announced.
+/// Every `Node` advertises a rectangular geometry and a single horizontal entry
+/// line inside that rectangle. Parent nodes use that geometry to position child
+/// nodes, so correctness depends on each implementation keeping its drawing
+/// inside the geometry it reports:
+///
+/// - `width()` and `height()` define the full bounding box,
+/// - `entry_height()` defines the vertical offset of the connecting path,
+/// - drawing at `(x, y)` must stay inside `x..x + width()` and `y..y + height()`,
+/// - and the path that enters or leaves the node must be aligned with
+///   `y + entry_height()`.
+///
+/// For simple leaf nodes, implementing [`Node::entry_height`], [`Node::height`],
+/// [`Node::width`], and [`Node::draw`] is usually enough. The default
+/// implementations of the geometry-aware methods are correct, just not always
+/// optimal.
+///
+/// Composite nodes that contain child nodes should usually override
+/// [`Node::compute_geometry`] so child geometry is computed once in a bottom-up
+/// pass, then override [`Node::draw_with_geometry`] and often
+/// [`Node::render_with_geometry`] to reuse that cached geometry during drawing.
 pub trait Node {
     /// The vertical distance from this element's top to where the entering,
     /// connecting path is drawn.
     ///
     /// By convention, the path connecting primitives enters from the left.
+    /// Parent nodes align children by placing their connecting path at
+    /// `y + entry_height()`, so this value must match where the node actually
+    /// expects its incoming and outgoing path segments.
     fn entry_height(&self) -> i64;
 
-    /// This primitives's total height.
+    /// This primitive's total height.
+    ///
+    /// Together with [`Node::width`], this defines the full bounding box the
+    /// node may occupy when drawn.
     fn height(&self) -> i64;
 
     /// This primitive's total width.
+    ///
+    /// The node must not draw outside the horizontal range implied by this
+    /// value when positioned by a parent node.
     fn width(&self) -> i64;
 
     /// The vertical distance from the height of the connecting path to the bottom.
     ///
     /// Equivalent to `height() - entry_height()`.
+    ///
+    /// This is a convenience method for parent nodes that need to align child
+    /// nodes relative to the connecting path. Implementors normally should not
+    /// override it unless they also change the meaning of the basic geometry
+    /// methods.
     fn height_below_entry(&self) -> i64 {
         self.height() - self.entry_height()
     }
@@ -223,6 +265,10 @@ pub trait Node {
     ///
     /// The element must fit entirely within the bounding box defined by `(x, y)`,
     /// `width()`, and `height()`, with the connecting path at `y + entry_height()`.
+    ///
+    /// For many downstream leaf nodes, this is the only drawing method that must
+    /// be implemented directly. The default geometry-aware methods delegate back
+    /// to it.
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element;
 
     /// Compute geometry for this node and its entire subtree in a single bottom-up pass.
@@ -230,8 +276,13 @@ pub trait Node {
     /// The returned [`NodeGeometry`] is a transient value intended to be passed to
     /// [`Node::draw_with_geometry`]; it is not stored inside the node.
     ///
-    /// The default implementation is correct for leaf nodes (no children). Composite
-    /// nodes should override this to recurse into their children.
+    /// The default implementation is correct for leaf nodes because it simply
+    /// records this node's advertised geometry and assumes there are no children.
+    ///
+    /// Composite nodes should override this to recurse into their children and
+    /// store child geometry in [`NodeGeometry::children`]. That lets parent and
+    /// child rendering share one cached geometry pass instead of repeatedly
+    /// calling `entry_height()`, `height()`, and `width()` throughout the tree.
     fn compute_geometry(&self) -> NodeGeometry {
         NodeGeometry {
             entry_height: self.entry_height(),
@@ -245,13 +296,14 @@ pub trait Node {
     /// recomputation for deeply nested structures.
     ///
     /// `geo` holds the cached dimensions for *this* node. Composite nodes should
-    /// extract child geometry from `geo.children[i]` and pass it to each child's
-    /// `draw_with_geometry` call rather than calling `geo.children[i].entry_height()`
-    /// etc. directly.
+    /// read child geometry from `geo.children[i]` and pass it to each child's
+    /// `draw_with_geometry` call, rather than recomputing child geometry through
+    /// repeated calls to `entry_height()`, `height()`, and `width()`.
     ///
-    /// The default implementation falls back to [`Node::draw`], which is correct for
-    /// all nodes but does not benefit from caching. External [`Node`] implementors
-    /// do not need to override this method.
+    /// The default implementation falls back to [`Node::draw`], which is correct
+    /// for all nodes. Leaf nodes usually do not need to override this. Composite
+    /// nodes should usually override it so the cached geometry from
+    /// [`Node::compute_geometry`] is actually used.
     fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, _geo: &NodeGeometry) -> svg::Element {
         self.draw(x, y, h_dir)
     }
@@ -261,6 +313,10 @@ pub trait Node {
     /// This is the streaming counterpart to [`Node::draw`]. The default
     /// implementation computes geometry once and forwards to
     /// [`Node::render_with_geometry`].
+    ///
+    /// Implementors typically do not override this method directly. Instead,
+    /// override [`Node::render_with_geometry`] if a custom streaming
+    /// implementation is worthwhile.
     ///
     /// # Example
     /// ```rust
@@ -284,6 +340,11 @@ pub trait Node {
     /// without first materializing an intermediate [`svg::Element`] tree. The
     /// default implementation preserves compatibility by serializing the result of
     /// [`Node::draw_with_geometry`].
+    ///
+    /// Leaf nodes can often keep the default implementation. Composite nodes or
+    /// performance-sensitive nodes should usually override this together with
+    /// [`Node::draw_with_geometry`] so both rendering paths consume the same
+    /// cached geometry instead of rebuilding equivalent intermediate structures.
     fn render_with_geometry(
         &self,
         out: &mut svg::Renderer<'_>,
