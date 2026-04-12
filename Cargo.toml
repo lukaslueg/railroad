@@ -20,7 +20,7 @@ resvg = { version = "0.47", optional=true, features=["text", "system-fonts", "me
 
 [dev-dependencies]
 railroad_verification = "0.1"
-criterion = "0.8"
+criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
 
 [[example]]
 name = "render"
