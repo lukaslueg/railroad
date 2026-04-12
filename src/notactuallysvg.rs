@@ -1,3 +1,104 @@
+//! Lower-level SVG building blocks used by `railroad`'s rendering layers.
+//!
+//! Downstream crates that implement custom [`crate::Node`]s will usually touch
+//! this module through the crate-root re-export as [`crate::svg`]. It provides
+//! three main pieces:
+//!
+//! - [`Element`] for the compatibility draw path that builds a small SVG tree,
+//! - [`Renderer`] for the streaming render path that writes directly into a
+//!   [`std::fmt::Write`] sink,
+//! - [`PathData`] for constructing SVG path `d` attributes in a composable way.
+//!
+//! For simple custom nodes, implementing [`crate::Node::draw`] with [`Element`]
+//! and [`PathData`] is often enough. Performance-sensitive or composite nodes can
+//! additionally implement [`crate::Node::render_with_geometry`] using
+//! [`Renderer`] to avoid building intermediate `Element` trees on the hot path.
+//!
+//! # Example: custom leaf node using `Element`
+//! ```rust
+//! use railroad::{Diagram, Node, svg};
+//!
+//! #[derive(Debug, Clone, Copy)]
+//! struct Tick;
+//!
+//! impl Node for Tick {
+//!     fn entry_height(&self) -> i64 {
+//!         5
+//!     }
+//!
+//!     fn height(&self) -> i64 {
+//!         10
+//!     }
+//!
+//!     fn width(&self) -> i64 {
+//!         20
+//!     }
+//!
+//!     fn draw(&self, x: i64, y: i64, h_dir: svg::HDir) -> svg::Element {
+//!         svg::PathData::new(h_dir)
+//!             .move_to(x, y + 5)
+//!             .horizontal(20)
+//!             .move_rel(-10, -5)
+//!             .vertical(10)
+//!             .into_path()
+//!     }
+//! }
+//!
+//! let svg = Diagram::new(Tick).to_string();
+//! assert!(svg.contains("<path"));
+//! ```
+//!
+//! # Example: custom node streaming with `Renderer`
+//! ```rust
+//! use std::fmt;
+//! use railroad::{Node, NodeGeometry, svg};
+//!
+//! #[derive(Debug, Clone, Copy)]
+//! struct Marker;
+//!
+//! impl Node for Marker {
+//!     fn entry_height(&self) -> i64 {
+//!         5
+//!     }
+//!
+//!     fn height(&self) -> i64 {
+//!         10
+//!     }
+//!
+//!     fn width(&self) -> i64 {
+//!         10
+//!     }
+//!
+//!     fn draw(&self, x: i64, y: i64, h_dir: svg::HDir) -> svg::Element {
+//!         svg::PathData::new(h_dir)
+//!             .move_to(x, y + 5)
+//!             .horizontal(10)
+//!             .into_path()
+//!     }
+//!
+//!     fn render_with_geometry(
+//!         &self,
+//!         out: &mut svg::Renderer<'_>,
+//!         x: i64,
+//!         y: i64,
+//!         h_dir: svg::HDir,
+//!         _geo: &NodeGeometry,
+//!     ) -> fmt::Result {
+//!         out.path_with_class(
+//!             &svg::PathData::new(h_dir)
+//!                 .move_to(x, y + 5)
+//!                 .horizontal(10),
+//!             "marker",
+//!         )
+//!     }
+//! }
+//!
+//! let mut out = String::new();
+//! let mut renderer = svg::Renderer::new(&mut out);
+//! Marker.render(&mut renderer, 0, 0, svg::HDir::LTR).unwrap();
+//! assert!(out.contains("class=\"marker\""));
+//! ```
+
 use std::{
     borrow::Cow,
     collections::HashMap,
@@ -1026,6 +1127,15 @@ const ENTITIES: [Option<&'static str>; 256] = [
 /// Prefer [`encode_minimal`] for double-quoted XML attribute values in SVG;
 /// use this function only when full byte-level escaping is required (e.g.,
 /// for unquoted attribute values or legacy HTML contexts).
+///
+/// # Example
+/// ```
+/// use railroad::notactuallysvg::encode_attribute;
+///
+/// assert_eq!(encode_attribute("0 3px"), "0&#x20;3px");
+/// assert_eq!(encode_attribute("a-b"), "a&#x2D;b");
+/// assert_eq!(encode_attribute("東京"), "東京");
+/// ```
 #[must_use]
 pub fn encode_attribute(inp: &str) -> Cow<'_, str> {
     let mut buf = String::new();

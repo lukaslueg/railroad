@@ -11,27 +11,26 @@
 
 Railroad diagrams are a way to represent context-free grammar. Every diagram has exactly one starting- and end-point; everything that belongs to the described language is represented by one of the possible paths between those points.
 
-Using this library, diagrams are created using primitives which implement `Node`. Primitives are combined into more complex structures by wrapping simple elements into more complex ones.
+Using this library, diagrams are created using primitives which implement `Node`. Primitives are combined into more complex structures by wrapping simple elements into more complex ones. The public API stays flat at the crate root, so built-in nodes such as `Sequence`, `Choice`, `Terminal`, `Optional`, and `Diagram` are all available directly from `railroad::*`.
 
 
 ```rust
 use railroad::*;
 
-let mut seq = Sequence::default();
-seq.push(Box::new(Start) as Box<dyn Node>)
+let mut seq: Sequence<Box<dyn Node>> = Sequence::default();
+seq.push(Box::new(Start))
    .push(Box::new(Terminal::new("BEGIN".to_owned())))
    .push(Box::new(NonTerminal::new("syntax".to_owned())))
    .push(Box::new(End));
 
-let mut dia = Diagram::new(seq);
-
-dia.add_element(svg::Element::new("style")
-                .set("type", "text/css")
-                .text(DEFAULT_CSS));
-
+let dia = Diagram::new_with_stylesheet(seq, &Stylesheet::Light);
 println!("{}", dia);
 ```
 
 ![diagram for create table sql syntax](https://raw.githubusercontent.com/lukaslueg/railroad/master/examples/create_table_stmt.jpeg)
 
-When adding new `Node`-primitives to this library, you may find `examples/visual.rs` come in handy to quickly generate special-cases and check if they render properly. Use the `visual-debug` feature to add guide-lines to the rendered diagram and extra information to the SVG's code.
+For simple custom nodes, implementing `entry_height()`, `height()`, `width()`, and `draw()` is often enough. A custom node must only draw within the geometry it advertises, and its connecting path must stay at `y + entry_height()`. Composite or performance-sensitive nodes should usually override `compute_geometry()` and the geometry-aware draw/render hooks so child geometry is computed once and reused.
+
+The lower-level SVG helpers are available as `railroad::svg`. Downstream crates can use them to build custom `Node` implementations while still exposing their nodes through the regular `railroad` API.
+
+When adding new `Node` primitives to this library, `examples/visuals.rs` is a useful manual harness for generating edge cases and checking layout. Use the `visual-debug` feature to add guide lines to the rendered diagram and extra metadata to the SVG output.

@@ -896,24 +896,88 @@ fn emit_text_box<B: RenderBackend>(
     backend.push_text(x + geo.width / 2, y + geo.entry_height + 5, label)
 }
 
-/// Helper trait for collections of nodes.
+/// Convenience aggregation helpers for iterators and collections of [`Node`]s.
+///
+/// `NodeCollection` is implemented for any `IntoIterator<Item = N>` where `N`
+/// implements [`Node`]. It is mainly a small ergonomic helper for container
+/// nodes that need to aggregate child geometry without spelling out the same
+/// iterator expressions repeatedly.
+///
+/// The methods consume `self`, so they work naturally on iterators as well as on
+/// owned collections. When called on borrowed collections such as `slice.iter()`
+/// or `vec.iter()`, the iterator items are references, and the blanket `Node`
+/// implementations for references keep the methods usable.
+///
+/// # Example
+/// ```rust
+/// use railroad::{End, NodeCollection, SimpleStart, Start};
+///
+/// let nodes = [Start, Start];
+/// assert!(nodes.iter().max_entry_height() > 0);
+///
+/// let widths = vec![SimpleStart, SimpleStart];
+/// assert!(widths.iter().total_width() > 0);
+///
+/// let exits: Vec<Box<dyn railroad::Node>> = vec![Box::new(End), Box::new(SimpleStart)];
+/// assert!(exits.iter().max_height_below_entry() > 0);
+/// ```
 pub trait NodeCollection {
-    /// The maximum `entry_height()`-value.
+    /// Return the maximum [`Node::entry_height`] in the collection.
+    ///
+    /// This is commonly used by horizontal container nodes that align several
+    /// children to the same connecting path.
+    ///
+    /// # Example
+    /// ```rust
+    /// use railroad::{Comment, NodeCollection, Start};
+    ///
+    /// let nodes: Vec<Box<dyn railroad::Node>> =
+    ///     vec![Box::new(Comment::new("note".to_owned())), Box::new(Start)];
+    /// assert!(nodes.iter().max_entry_height() > 0);
+    /// ```
     fn max_entry_height(self) -> i64;
 
-    /// The maximum `height()`-value.
+    /// Return the maximum [`Node::height`] in the collection.
     fn max_height(self) -> i64;
 
-    /// The maximum `height_below_entry()`-value.
+    /// Return the maximum [`Node::height_below_entry`] in the collection.
+    ///
+    /// This is useful when children are aligned by their connecting path and the
+    /// parent needs enough space below that path for the deepest child.
+    ///
+    /// # Example
+    /// ```rust
+    /// use railroad::{Comment, NodeCollection, Terminal};
+    ///
+    /// let nodes: Vec<Box<dyn railroad::Node>> = vec![
+    ///     Box::new(Comment::new("note".to_owned())),
+    ///     Box::new(Terminal::new("token".to_owned())),
+    /// ];
+    /// assert!(nodes.iter().max_height_below_entry() > 0);
+    /// ```
     fn max_height_below_entry(self) -> i64;
 
-    /// The maximum `width()`-value.
+    /// Return the maximum [`Node::width`] in the collection.
     fn max_width(self) -> i64;
 
-    /// The sum of all `width()`-values.
+    /// Return the sum of all [`Node::width`] values in the collection.
+    ///
+    /// This is typically used by horizontal container nodes before adding their
+    /// own inter-child spacing.
+    ///
+    /// # Example
+    /// ```rust
+    /// use railroad::{NodeCollection, SimpleStart, Start};
+    ///
+    /// let nodes = [Start, Start];
+    /// assert!(nodes.iter().total_width() > 0);
+    ///
+    /// let mixed = [SimpleStart, SimpleStart];
+    /// assert!(mixed.iter().total_width() > 0);
+    /// ```
     fn total_width(self) -> i64;
 
-    /// The sum of all `height()`-values.
+    /// Return the sum of all [`Node::height`] values in the collection.
     fn total_height(self) -> i64;
 }
 
