@@ -86,6 +86,16 @@ verify!(escape_nonterm, dia!(nonterm!("Foo<bar>")));
 verify!(simple_term, dia!(term!("Foobar")));
 verify!(escape_term, dia!(term!("Foo<bar>")));
 verify!(simple_choice, dia!(choice!(term!("Foo"), term!("Bar"))));
+verify!(
+    simple_multichoice,
+    dia!(railroad::MultiChoice::new(vec![
+        vec![
+            Box::new(term!("Foo")) as Box<dyn Node>,
+            Box::new(term!("Bar")) as Box<dyn Node>,
+        ],
+        vec![Box::new(term!("Baz")) as Box<dyn Node>],
+    ]))
+);
 verify!(simple_stack, dia!(stck!(term!("Foo"), term!("Bar"))));
 verify!(simple_comment, dia!(cmt!("Foobar")));
 verify!(escape_comment, dia!(cmt!("Foo<bar>")));

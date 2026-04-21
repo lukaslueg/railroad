@@ -37,6 +37,13 @@ fn main() {
     }
     macro_rules! seq { ($($r: expr),*) => { Sequence::<Box<dyn Node>>::new(vec![ $( Box::new($r), )+ ]) } }
     macro_rules! choice { ($($r: expr),*) => { Choice::<Box<dyn Node>>::new(vec![ $( Box::new($r), )* ]) } }
+    macro_rules! multichoice {
+        ( $( [ $($r:expr),* $(,)? ] ),* $(,)? ) => {
+            MultiChoice::<Box<dyn Node>>::new(vec![
+                $( vec![ $( Box::new($r) as Box<dyn Node>, )* ], )*
+            ])
+        }
+    }
     macro_rules! stck { ($($r: expr),*) => { Stack::<Box<dyn Node>>::new(vec![ $( Box::new($r), )* ]) } }
     macro_rules! cmt {
         ($r:expr) => {
@@ -151,6 +158,105 @@ fn main() {
         dbg!(10, 15, 10)
     ));
     dia!(choice!(Empty, dbg!(5, 20, 10), dbg!(25, 35, 5)));
+    hr!();
+
+    // MultiChoices
+    // Amber fox: empty node, should stay Choice-compatible.
+    dia!(multichoice!());
+    // Cobalt otter: single column with multiple rows, should stay Choice-compatible.
+    dia!(multichoice!([Empty, dbg!(5, 20, 10), dbg!(25, 35, 5)]));
+    // Violet lynx: two balanced columns with one branch in each row group.
+    dia!(multichoice!(
+        [dbg!(15, 40, 10), dbg!(25, 30, 20)],
+        [dbg!(20, 35, 15), dbg!(10, 25, 10)]
+    ));
+    // Green heron: ragged columns, covering columns with different row counts.
+    dia!(multichoice!(
+        [dbg!(10, 15, 10), dbg!(10, 15, 5), dbg!(20, 35, 22)],
+        [dbg!(30, 45, 20)],
+        [dbg!(8, 20, 12), dbg!(25, 30, 8)]
+    ));
+    // Scarlet badger: empty alternatives mixed into multiple columns.
+    dia!(multichoice!(
+        [Empty, dbg!(5, 20, 10)],
+        [dbg!(25, 35, 5), Empty]
+    ));
+    // Indigo marten: uneven child widths across all columns.
+    dia!(multichoice!(
+        [dbg!(12, 30, 12), dbg!(12, 30, 120)],
+        [dbg!(12, 30, 20), dbg!(12, 30, 75)]
+    ));
+    // Silver raven: uneven entry heights and nested containers.
+    dia!(multichoice!(
+        [
+            seq!(dbg!(20, 30, 10), dbg!(30, 50, 70)),
+            opt!(dbg!(30, 50, 50))
+        ],
+        [
+            stck!(dbg!(10, 15, 10), dbg!(20, 35, 22)),
+            choice!(dbg!(10, 25, 20), dbg!(18, 35, 20))
+        ]
+    ));
+    // Orange ibex: first, middle, and final column routing all present.
+    dia!(multichoice!(
+        [dbg!(12, 30, 45), dbg!(12, 30, 45)],
+        [dbg!(12, 30, 55), dbg!(12, 30, 55), dbg!(12, 30, 55)],
+        [dbg!(12, 30, 45), dbg!(12, 30, 45)]
+    ));
+    // Teal cougar: one row spread across four columns.
+    dia!(multichoice!(
+        [dbg!(12, 30, 40)],
+        [dbg!(12, 30, 35)],
+        [dbg!(12, 30, 65)],
+        [dbg!(12, 30, 45)]
+    ));
+    // Crimson owl: empty middle column should be ignored without breaking routing.
+    dia!(multichoice!(
+        [dbg!(12, 30, 40), dbg!(18, 40, 30)],
+        [],
+        [dbg!(10, 25, 55), dbg!(15, 35, 25)]
+    ));
+    // Yellow seal: single-row first column feeding tall later columns.
+    dia!(multichoice!(
+        [dbg!(12, 30, 35)],
+        [dbg!(8, 70, 50), dbg!(45, 90, 35)],
+        [dbg!(16, 35, 40), dbg!(28, 70, 60), dbg!(12, 30, 30)]
+    ));
+    // Blue falcon: tall first column with shallow final column.
+    dia!(multichoice!(
+        [
+            dbg!(10, 35, 35),
+            dbg!(40, 85, 50),
+            dbg!(12, 30, 25),
+            dbg!(30, 60, 45)
+        ],
+        [dbg!(12, 30, 60)]
+    ));
+    // Magenta whale: final column top row needs downward placement before merging upward.
+    dia!(multichoice!(
+        [dbg!(28, 60, 55), dbg!(12, 35, 40)],
+        [dbg!(5, 20, 65), dbg!(12, 30, 45)],
+        [dbg!(5, 20, 50), dbg!(14, 35, 70)]
+    ));
+    // Lime panther: very wide middle column with narrow side columns.
+    dia!(multichoice!(
+        [dbg!(12, 30, 25), dbg!(15, 35, 35)],
+        [dbg!(20, 45, 150), dbg!(8, 25, 120)],
+        [dbg!(12, 30, 30), dbg!(18, 45, 20)]
+    ));
+    // Purple yak: high entry heights in later columns.
+    dia!(multichoice!(
+        [dbg!(10, 30, 45), dbg!(20, 45, 30)],
+        [dbg!(45, 80, 55), dbg!(35, 70, 35)],
+        [dbg!(50, 95, 65)]
+    ));
+    // White gecko: many ragged columns with mixed heights and widths.
+    dia!(multichoice!(
+        [dbg!(8, 25, 25), dbg!(18, 45, 40)],
+        [dbg!(15, 35, 80)],
+        [dbg!(10, 30, 35), dbg!(25, 60, 45), dbg!(12, 30, 30)],
+        [dbg!(22, 55, 70), dbg!(8, 25, 20)]
+    ));
     hr!();
 
     // Vertical grid
