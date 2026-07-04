@@ -316,6 +316,9 @@ fn main() {
     dia!(stck!(Empty));
     dia!(stck!(Empty, Empty));
     dia!(stck!(Empty, dbg!(5, 25, 10)));
+    // Connector overshoot reproduction: the second child is narrower than the
+    // final inter-child connector segment.
+    dia!(stck!(Empty, dbg!(5, 25, 4)));
     dia!(stck!(dbg!(15, 40, 10), dbg!(25, 30, 20)));
     dia!(stck!(
         dbg!(10, 15, 10),

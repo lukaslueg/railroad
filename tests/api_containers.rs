@@ -1,8 +1,16 @@
 mod common;
 
-use railroad::{Choice, Diagram, Empty, MultiChoice, Node, Stack, Terminal};
+use railroad::{Choice, Debug, Diagram, Empty, MultiChoice, Node, Stack, Terminal};
 
 use crate::common::boxed;
+
+fn demo_stack_with_narrow_child() -> railroad::Sequence<Box<dyn Node>> {
+    railroad::Sequence::new(vec![
+        boxed(railroad::SimpleStart),
+        boxed(Stack::new(vec![boxed(Empty), boxed(Debug::new(5, 25, 4))])),
+        boxed(railroad::SimpleEnd),
+    ])
+}
 
 #[test]
 fn sequence_supports_builder_style_composition() {
@@ -48,6 +56,19 @@ fn stack_and_choice_render_container_markup_and_children() {
     assert!(choice_svg.contains("one"));
     assert!(choice_svg.contains("two"));
     assert!(choice_svg.matches("<path").count() >= 3);
+}
+
+#[test]
+fn stack_inter_child_connector_stops_at_narrow_child_entry() {
+    let svg = Diagram::new(demo_stack_with_narrow_child()).to_string();
+
+    assert!(svg.contains(
+        "<path d=\" M 59 15 a 12 12 0 0 1 12 12 v 0 a 12 12 0 0 1 -12 12 h 0 a 12 12 0 0 0 -12 12 v 0 v 0 a 12 12 0 0 0 12 12\"/>"
+    ));
+    assert!(!svg.contains(
+        "<path d=\" M 59 15 a 12 12 0 0 1 12 12 v 0 a 12 12 0 0 1 -12 12 h 0 a 12 12 0 0 0 -12 12 v 0 v 0 a 12 12 0 0 0 12 12 h 12\"/>"
+    ));
+    assert!(svg.contains("<rect x=\"59\" y=\"58\" height=\"25\" width=\"4\""));
 }
 
 #[test]

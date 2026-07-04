@@ -317,8 +317,7 @@ impl<N> Stack<N> {
                         0,
                         (self.spacing - ARC_RADIUS * 2) / 2 + (self.spacing - ARC_RADIUS * 2) % 2,
                     ))
-                    .arc(ARC_RADIUS, svg::Arc::NorthToEast)
-                    .horizontal(left_p - ARC_RADIUS),
+                    .arc(ARC_RADIUS, svg::Arc::NorthToEast),
             )?;
             backend.push_child(child, x + left_p, running_y, h_dir, child_geo)?;
             let ph = child_geo.entry_height
@@ -456,7 +455,6 @@ where
                         (self.spacing - ARC_RADIUS * 2) / 2 + (self.spacing - ARC_RADIUS * 2) % 2,
                     ))
                     .arc(ARC_RADIUS, svg::Arc::NorthToEast)
-                    .horizontal(left_p - ARC_RADIUS)
                     .into_path(),
             );
             g.push(child.draw(x + left_p, running_y, h_dir));
