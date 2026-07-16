@@ -23,6 +23,25 @@ jobs:
       - run: cargo clippy --features visual-debug -- -D warnings
       - run: cargo clippy --features resvg -- -D warnings
 
+  css:
+    name: CSS validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Download Nu checker
+        run: curl --fail --location --silent --show-error https://github.com/validator/validator/releases/download/latest/vnu.jar --output /tmp/vnu.jar
+      - name: Validate bundled stylesheets
+        run: |
+          java -jar /tmp/vnu.jar --errors-only --css \
+            src/stylesheet_light.css \
+            src/stylesheet_dark.css \
+            src/stylesheet_light_safe.css \
+            src/stylesheet_dark_safe.css
+
   test:
     runs-on: ubuntu-latest
     steps:
