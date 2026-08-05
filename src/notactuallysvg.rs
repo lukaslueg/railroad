@@ -449,6 +449,10 @@ pub struct PathData {
 }
 
 impl PathData {
+    /// The distance an automatically inserted arrowhead extends perpendicular
+    /// to its path segment.
+    pub const PADDING: i64 = 5;
+
     /// Construct an empty `PathData` with the given horizontal direction.
     #[must_use]
     pub fn new(h_dir: HDir) -> Self {
@@ -497,27 +501,27 @@ impl PathData {
         match (h > 50, h < -50, self.h_dir) {
             (true, _, HDir::LTR) => self
                 .move_rel(-(h / 2 - 3), 0)
-                .line_rel(-5, -5)
-                .move_rel(0, 10)
-                .line_rel(5, -5)
+                .line_rel(-Self::PADDING, -Self::PADDING)
+                .move_rel(0, Self::PADDING * 2)
+                .line_rel(Self::PADDING, -Self::PADDING)
                 .move_rel(h / 2 - 3, 0),
             (true, _, HDir::RTL) => self
                 .move_rel(-(h / 2 + 3), 0)
-                .line_rel(5, -5)
-                .move_rel(0, 10)
-                .line_rel(-5, -5)
+                .line_rel(Self::PADDING, -Self::PADDING)
+                .move_rel(0, Self::PADDING * 2)
+                .line_rel(-Self::PADDING, -Self::PADDING)
                 .move_rel(h / 2 + 3, 0),
             (_, true, HDir::LTR) => self
                 .move_rel(-(h / 2 - 3), 0)
-                .line_rel(5, -5)
-                .move_rel(0, 10)
-                .line_rel(-5, -5)
+                .line_rel(Self::PADDING, -Self::PADDING)
+                .move_rel(0, Self::PADDING * 2)
+                .line_rel(-Self::PADDING, -Self::PADDING)
                 .move_rel(h / 2 - 3, 0),
             (_, true, HDir::RTL) => self
                 .move_rel(-(h / 2 + 3), 0)
-                .line_rel(-5, -5)
-                .move_rel(0, 10)
-                .line_rel(5, -5)
+                .line_rel(-Self::PADDING, -Self::PADDING)
+                .move_rel(0, Self::PADDING * 2)
+                .line_rel(Self::PADDING, -Self::PADDING)
                 .move_rel(h / 2 + 3, 0),
             (false, false, _) => self,
         }
@@ -533,15 +537,15 @@ impl PathData {
         // Add an arrow for long stretches
         if h > 50 {
             self.move_rel(0, -(h / 2 - 3))
-                .line_rel(-5, -5)
-                .move_rel(10, 0)
-                .line_rel(-5, 5)
+                .line_rel(-Self::PADDING, -Self::PADDING)
+                .move_rel(Self::PADDING * 2, 0)
+                .line_rel(-Self::PADDING, Self::PADDING)
                 .move_rel(0, h / 2 - 3)
         } else if h < -50 {
             self.move_rel(0, -(h / 2 - 3))
-                .line_rel(-5, 5)
-                .move_rel(10, 0)
-                .line_rel(-5, -5)
+                .line_rel(-Self::PADDING, Self::PADDING)
+                .move_rel(Self::PADDING * 2, 0)
+                .line_rel(-Self::PADDING, -Self::PADDING)
                 .move_rel(0, h / 2 - 3)
         } else {
             self

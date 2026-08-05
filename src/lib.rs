@@ -1751,7 +1751,7 @@ mod tests {
         ]);
         assert_eq!(
             "Sequence { children: [Node { entry_height: 5, height: 10, width: 15 }, Node { entry_height: 5, height: 10, width: 15 }], spacing: 10 }",
-            format!("{:?}", &s)
+            format!("{:?}", s)
         );
         assert_eq!(
             "Node { entry_height: 5, height: 10, width: 40 }",

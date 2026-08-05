@@ -251,7 +251,7 @@ where
     N: Node,
 {
     fn entry_height(&self) -> i64 {
-        ARC_RADIUS + cmp::max(ARC_RADIUS, self.inner.entry_height())
+        svg::PathData::PADDING + ARC_RADIUS + cmp::max(ARC_RADIUS, self.inner.entry_height())
     }
 
     fn height(&self) -> i64 {
@@ -292,7 +292,8 @@ where
 
     fn compute_geometry(&self) -> NodeGeometry {
         let inner_geo = self.inner.compute_geometry();
-        let entry_height = ARC_RADIUS + cmp::max(ARC_RADIUS, inner_geo.entry_height);
+        let entry_height =
+            svg::PathData::PADDING + ARC_RADIUS + cmp::max(ARC_RADIUS, inner_geo.entry_height);
         let height = entry_height + inner_geo.height_below_entry();
         let width = ARC_RADIUS * 2 + inner_geo.width + ARC_RADIUS * 2;
         NodeGeometry {
@@ -386,6 +387,7 @@ where
         h_dir: HDir,
         geo: &NodeGeometry,
     ) -> fmt::Result {
+        let padding = svg::PathData::PADDING;
         let inner_geo = &geo.children[0];
         let repeat_geo = &geo.children[1];
         let height_between = cmp::max(
@@ -396,13 +398,15 @@ where
         backend.push_path(
             svg::PathData::new(h_dir)
                 .move_to(x, y + geo.entry_height)
+                .horizontal(padding)
                 .horizontal(ARC_RADIUS)
                 .move_rel(inner_geo.width, 0)
                 .horizontal(cmp::max(
                     ARC_RADIUS,
                     repeat_geo.width - inner_geo.width + ARC_RADIUS,
                 ))
-                .move_rel(-ARC_RADIUS, 0)
+                .horizontal(padding)
+                .move_rel(-ARC_RADIUS - padding, 0)
                 .arc(ARC_RADIUS, svg::Arc::WestToSouth)
                 .vertical(height_between - ARC_RADIUS * 2)
                 .arc(ARC_RADIUS, svg::Arc::NorthToWest)
@@ -414,12 +418,18 @@ where
         )?;
         backend.push_child(
             &self.repeat,
-            x + geo.width - repeat_geo.width - ARC_RADIUS,
-            y + geo.height - repeat_geo.height_below_entry() - repeat_geo.entry_height,
+            x + geo.width - repeat_geo.width - ARC_RADIUS - padding,
+            y + geo.height - repeat_geo.height_below_entry() - repeat_geo.entry_height - padding,
             h_dir.invert(),
             repeat_geo,
         )?;
-        backend.push_child(&self.inner, x + ARC_RADIUS, y, h_dir, inner_geo)
+        backend.push_child(
+            &self.inner,
+            x + ARC_RADIUS + padding,
+            y + padding,
+            h_dir,
+            inner_geo,
+        )
     }
 }
 
@@ -444,15 +454,21 @@ where
     R: Node,
 {
     fn entry_height(&self) -> i64 {
-        self.inner.entry_height()
+        svg::PathData::PADDING + self.inner.entry_height()
     }
 
     fn height(&self) -> i64 {
-        self.inner.entry_height() + self.height_between_entries() + self.repeat.height_below_entry()
+        self.entry_height()
+            + self.height_between_entries()
+            + self.repeat.height_below_entry()
+            + svg::PathData::PADDING
     }
 
     fn width(&self) -> i64 {
-        ARC_RADIUS + cmp::max(self.repeat.width(), self.inner.width()) + ARC_RADIUS
+        svg::PathData::PADDING * 2
+            + ARC_RADIUS
+            + cmp::max(self.repeat.width(), self.inner.width())
+            + ARC_RADIUS
     }
 
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
@@ -461,13 +477,15 @@ where
         g.push(
             svg::PathData::new(h_dir)
                 .move_to(x, y + self.entry_height())
+                .horizontal(svg::PathData::PADDING)
                 .horizontal(ARC_RADIUS)
                 .move_rel(self.inner.width(), 0)
                 .horizontal(cmp::max(
                     ARC_RADIUS,
                     self.repeat.width() - self.inner.width() + ARC_RADIUS,
                 ))
-                .move_rel(-ARC_RADIUS, 0)
+                .horizontal(svg::PathData::PADDING)
+                .move_rel(-ARC_RADIUS - svg::PathData::PADDING, 0)
                 .arc(ARC_RADIUS, svg::Arc::WestToSouth)
                 .vertical(self.height_between_entries() - ARC_RADIUS * 2)
                 .arc(ARC_RADIUS, svg::Arc::NorthToWest)
@@ -479,11 +497,18 @@ where
                 .into_path(),
         )
         .push(self.repeat.draw(
-            x + self.width() - self.repeat.width() - ARC_RADIUS,
-            y + self.height() - self.repeat.height_below_entry() - self.repeat.entry_height(),
+            x + self.width() - self.repeat.width() - ARC_RADIUS - svg::PathData::PADDING,
+            y + self.height()
+                - self.repeat.height_below_entry()
+                - self.repeat.entry_height()
+                - svg::PathData::PADDING,
             h_dir.invert(),
         ));
-        g.push(self.inner.draw(x + ARC_RADIUS, y, h_dir));
+        g.push(self.inner.draw(
+            x + ARC_RADIUS + svg::PathData::PADDING,
+            y + svg::PathData::PADDING,
+            h_dir,
+        ));
         g.debug("Repeat", x, y, self)
     }
 
@@ -494,9 +519,15 @@ where
             ARC_RADIUS * 2,
             inner_geo.height_below_entry() + self.spacing + repeat_geo.entry_height,
         );
-        let entry_height = inner_geo.entry_height;
-        let height = inner_geo.entry_height + height_between + repeat_geo.height_below_entry();
-        let width = ARC_RADIUS + cmp::max(repeat_geo.width, inner_geo.width) + ARC_RADIUS;
+        let entry_height = svg::PathData::PADDING + inner_geo.entry_height;
+        let height = entry_height
+            + height_between
+            + repeat_geo.height_below_entry()
+            + svg::PathData::PADDING;
+        let width = svg::PathData::PADDING * 2
+            + ARC_RADIUS
+            + cmp::max(repeat_geo.width, inner_geo.width)
+            + ARC_RADIUS;
         NodeGeometry {
             entry_height,
             height,
