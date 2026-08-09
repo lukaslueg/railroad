@@ -40,7 +40,11 @@ jobs:
             src/stylesheet_light.css \
             src/stylesheet_dark.css \
             src/stylesheet_light_safe.css \
-            src/stylesheet_dark_safe.css
+            src/stylesheet_dark_safe.css \
+            src/stylesheet_rust.css \
+            src/stylesheet_coal.css \
+            src/stylesheet_navy.css \
+            src/stylesheet_ayu.css
 
   test:
     runs-on: ubuntu-latest

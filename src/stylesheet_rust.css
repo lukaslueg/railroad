@@ -1,0 +1,55 @@
+/*
+Railroad styling derived from mdBook's Rust theme palette.
+Palette source (MPL-2.0):
+https://github.com/rust-lang/mdBook/blob/b90df240a318da0c59ec3efe6b75a58f63c6c459/crates/mdbook-html/front-end/css/variables.css
+*/
+svg.railroad {
+background-color: hsl(60, 9%, 87%);
+background-size: 15px 15px;
+background-image: linear-gradient(to right, rgba(38, 38, 37, .05) 1px, transparent 1px),
+		  linear-gradient(to bottom, rgba(38, 38, 37, .05) 1px, transparent 1px);
+}
+
+svg.railroad rect.railroad_canvas {
+stroke-width: 0px;
+fill: none;
+}
+
+svg.railroad path {
+stroke-width: 3px;
+stroke: #262625;
+fill: none;
+}
+
+svg.railroad .debug {
+stroke-width: 1px;
+stroke: red;
+}
+
+svg.railroad text {
+font: 14px monospace;
+text-anchor: middle;
+fill: #262625;
+}
+
+svg.railroad .nonterminal text {
+font-weight: bold;
+}
+
+svg.railroad text.comment {
+font: italic 12px monospace;
+}
+
+svg.railroad rect {
+stroke-width: 3px;
+stroke: #b38f6b;
+fill: #b3a497;
+}
+
+svg.railroad g.labeledbox > rect {
+stroke-width: 1px;
+stroke: #b38f6b;
+stroke-dasharray: 5px;
+fill: rgb(230, 159, 103);
+fill-opacity: .1;
+}

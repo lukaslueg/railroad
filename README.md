@@ -29,8 +29,38 @@ println!("{}", dia);
 
 ![diagram for create table sql syntax](https://raw.githubusercontent.com/lukaslueg/railroad/master/examples/create_table_stmt.jpeg)
 
+---
+
+## Implementing [`Node`](https://docs.rs/railroad/latest/railroad/trait.Node.html)
+
 For simple custom nodes, implementing `entry_height()`, `height()`, `width()`, and `draw()` is often enough. A custom node must only draw within the geometry it advertises, and its connecting path must stay at `y + entry_height()`. Composite or performance-sensitive nodes should usually override `compute_geometry()` and the geometry-aware draw/render hooks so child geometry is computed once and reused.
 
 The lower-level SVG helpers are available as `railroad::svg`. Downstream crates can use them to build custom `Node` implementations while still exposing their nodes through the regular `railroad` API.
 
 When adding new `Node` primitives to this library, `examples/visuals.rs` is a useful manual harness for generating edge cases and checking layout. Use the `visual-debug` feature to add guide lines to the rendered diagram and extra metadata to the SVG output.
+
+See https://docs.rs for more information.
+
+---
+
+## Themes
+
+This library comes with a set of pre-defined [themes](https://docs.rs/railroad/latest/railroad/enum.Stylesheet.html). Existing themes can be modified and custom themes can be created using CSS.
+
+### Default light
+![Default light](examples/theme_light.jpg)
+
+### Default dark
+![Default dark](examples/theme_dark.jpg)
+
+### Rust
+![Rust](examples/theme_rust.jpg)
+
+### Coal
+![Coal](examples/theme_coal.jpg)
+
+### Navy
+![Navy](examples/theme_navy.jpg)
+
+### Ayu
+![Ayu](examples/theme_ayu.jpg)

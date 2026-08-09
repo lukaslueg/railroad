@@ -1,0 +1,55 @@
+/*
+Railroad styling derived from mdBook's Navy theme palette.
+Palette source (MPL-2.0):
+https://github.com/rust-lang/mdBook/blob/b90df240a318da0c59ec3efe6b75a58f63c6c459/crates/mdbook-html/front-end/css/variables.css
+*/
+svg.railroad {
+background-color: hsl(226, 23%, 11%);
+background-size: 15px 15px;
+background-image: linear-gradient(to right, rgba(188, 189, 208, .05) 1px, transparent 1px),
+		  linear-gradient(to bottom, rgba(188, 189, 208, .05) 1px, transparent 1px);
+}
+
+svg.railroad rect.railroad_canvas {
+stroke-width: 0px;
+fill: none;
+}
+
+svg.railroad path {
+stroke-width: 3px;
+stroke: #bcbdd0;
+fill: none;
+}
+
+svg.railroad .debug {
+stroke-width: 1px;
+stroke: red;
+}
+
+svg.railroad text {
+font: 14px monospace;
+text-anchor: middle;
+fill: #bcbdd0;
+}
+
+svg.railroad .nonterminal text {
+font-weight: bold;
+}
+
+svg.railroad text.comment {
+font: italic 12px monospace;
+}
+
+svg.railroad rect {
+stroke-width: 3px;
+stroke: #737480;
+fill: #282e40;
+}
+
+svg.railroad g.labeledbox > rect {
+stroke-width: 1px;
+stroke: #737480;
+stroke-dasharray: 5px;
+fill: rgb(43, 121, 162);
+fill-opacity: .1;
+}

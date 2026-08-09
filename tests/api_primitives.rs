@@ -23,6 +23,42 @@ fn stylesheet_helpers_preserve_theme_and_render_safety() {
     assert!(Stylesheet::LightRendersafe.is_light());
     assert!(!Stylesheet::Dark.is_light());
     assert_eq!(Stylesheet::Light.stylesheet(), railroad::DEFAULT_CSS);
+
+    assert!(Stylesheet::Rust.is_light());
+    assert_eq!(Stylesheet::Rust.to_light(), Stylesheet::Rust);
+    assert_eq!(Stylesheet::Rust.to_dark(), Stylesheet::Dark);
+    assert_eq!(
+        Stylesheet::Rust.stylesheet(),
+        include_str!("../src/stylesheet_rust.css")
+    );
+
+    for theme in [Stylesheet::Coal, Stylesheet::Navy, Stylesheet::Ayu] {
+        assert!(!theme.is_light());
+        assert_eq!(theme.to_dark(), theme);
+        assert_eq!(theme.to_light(), Stylesheet::Light);
+        assert_ne!(theme.stylesheet(), Stylesheet::Dark.stylesheet());
+    }
+    assert_eq!(
+        Stylesheet::Coal.stylesheet(),
+        include_str!("../src/stylesheet_coal.css")
+    );
+    assert_eq!(
+        Stylesheet::Navy.stylesheet(),
+        include_str!("../src/stylesheet_navy.css")
+    );
+    assert_eq!(
+        Stylesheet::Ayu.stylesheet(),
+        include_str!("../src/stylesheet_ayu.css")
+    );
+
+    for (theme, background) in [
+        (Stylesheet::Rust, "hsl(60, 9%, 87%)"),
+        (Stylesheet::Coal, "hsl(200, 7%, 8%)"),
+        (Stylesheet::Navy, "hsl(226, 23%, 11%)"),
+        (Stylesheet::Ayu, "hsl(210, 25%, 8%)"),
+    ] {
+        assert!(theme.stylesheet().contains(background));
+    }
 }
 
 #[test]

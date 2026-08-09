@@ -129,23 +129,39 @@ pub enum Stylesheet {
     LightRendersafe,
     /// Variation of the `Dark`-theme, compatible with what can be rendered when using `resvg`.
     DarkRendersafe,
+    /// The Rust Reference's `Rust` theme.
+    Rust,
+    /// The Rust Reference's `Coal` theme.
+    Coal,
+    /// The Rust Reference's `Navy` theme.
+    Navy,
+    /// The Rust Reference's `Ayu` theme.
+    Ayu,
 }
 
 impl Stylesheet {
-    /// Switch this stylesheet to it's "dark" variant, preserving render-safety.
+    /// Switch this stylesheet to its "dark" variant, preserving render-safety.
+    ///
+    /// Dark Rust Reference themes are returned unchanged. [`Stylesheet::Rust`], which has no
+    /// theme-specific dark counterpart, is converted to [`Stylesheet::Dark`].
     #[must_use]
     pub const fn to_dark(&self) -> Self {
         match self {
-            Self::Light | Self::Dark => Self::Dark,
+            Self::Light | Self::Rust => Self::Dark,
+            Self::Dark | Self::Coal | Self::Navy | Self::Ayu => *self,
             Self::LightRendersafe | Self::DarkRendersafe => Self::DarkRendersafe,
         }
     }
 
-    /// Switch this stylesheet to it's "light" variant, preserving render-safety.
+    /// Switch this stylesheet to its "light" variant, preserving render-safety.
+    ///
+    /// [`Stylesheet::Rust`] is returned unchanged. Dark Rust Reference themes, which have no
+    /// theme-specific light counterparts, are converted to [`Stylesheet::Light`].
     #[must_use]
     pub const fn to_light(&self) -> Self {
         match self {
-            Self::Light | Self::Dark => Self::Light,
+            Self::Light | Self::Rust => *self,
+            Self::Dark | Self::Coal | Self::Navy | Self::Ayu => Self::Light,
             Self::LightRendersafe | Self::DarkRendersafe => Self::LightRendersafe,
         }
     }
@@ -153,7 +169,7 @@ impl Stylesheet {
     /// Returns `True` if this stylesheet is of a "light" variant.
     #[must_use]
     pub const fn is_light(&self) -> bool {
-        matches!(self, Self::Light | Self::LightRendersafe)
+        matches!(self, Self::Light | Self::LightRendersafe | Self::Rust)
     }
 
     /// The CSS for this stylesheet.
@@ -164,6 +180,10 @@ impl Stylesheet {
             Self::Dark => include_str!("stylesheet_dark.css"),
             Self::LightRendersafe => include_str!("stylesheet_light_safe.css"),
             Self::DarkRendersafe => include_str!("stylesheet_dark_safe.css"),
+            Self::Rust => include_str!("stylesheet_rust.css"),
+            Self::Coal => include_str!("stylesheet_coal.css"),
+            Self::Navy => include_str!("stylesheet_navy.css"),
+            Self::Ayu => include_str!("stylesheet_ayu.css"),
         }
     }
 }
