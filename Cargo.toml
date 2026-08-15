@@ -1,13 +1,13 @@
 [package]
 name = "railroad"
-version = "0.3.8"
+version = "0.3.9"
 authors = ["Lukas Lueg <lukas.lueg@gmail.com>"]
 license = "MIT"
 description = "A library to create syntax-diagrams as Scalable Vector Graphics"
 repository = "https://github.com/lukaslueg/railroad"
 documentation = "https://docs.rs/railroad"
 readme = "README.md"
-exclude = ["examples/*.jpeg", "examples/*.png", "examples/*.html"]
+exclude = ["examples/*.jpeg", "examples/*.jpg", "examples/*.png", "examples/*.html"]
 edition = "2024"
 
 [features]
