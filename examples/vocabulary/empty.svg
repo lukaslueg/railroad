@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="railroad" viewBox="0 0 193 130" height="130" width="193">
+<style type="text/css">
+svg.railroad rect.railroad_canvas {
+fill: hsl(30, 20%, 95%);
+stroke-width: 0px;
+}
+
+svg.railroad path {
+stroke-width: 3px;
+stroke: black;
+fill: none;
+}
+
+svg.railroad .debug {
+stroke-width: 1px;
+stroke: red;
+}
+
+svg.railroad text {
+font: 14px monospace;
+text-anchor: middle;
+}
+
+svg.railroad .nonterminal text {
+font-weight: bold;
+}
+
+svg.railroad text.comment {
+font: italic 12px monospace;
+}
+
+svg.railroad rect {
+stroke-width: 3px;
+stroke: black;
+fill:hsl(-290, 70%, 90%);
+}
+
+svg.railroad g.labeledbox > rect {
+stroke-width: 1px;
+stroke: grey;
+stroke-dasharray: 5px;
+fill: rgb(90, 90, 150);
+fill-opacity: .1;
+}
+</style>
+<title>
+Use `Empty` where a node is required but no input is consumed. Here it fills the inner node of the labeled first alternative.</title>
+<rect width="100%" height="100%" class="railroad_canvas"/>
+<g class="sequence">
+<path d=" M 10 46 a 5 5 0 0 1 5 -5 a 5 5 0 0 1 5 5 a 5 5 0 0 1 -5 5 a 5 5 0 0 1 -5 -5 m 10 0 h 5"/>
+<g class="choice">
+<path d=" M 35 46 h 24 m 75 0 h 24"/>
+<g class="labeledbox">
+<rect x="59" y="10" height="44" width="75"/>
+<path d=" M 59 46 h 8 m 0 0 h 67 m -30 0 l -5 -5 m 0 10 l 5 -5 m 30 0"/>
+<text class="comment" x="96" y="33">
+Default</text>
+<g>
+</g>
+</g>
+<path d=" M 35 46 a 12 12 0 0 1 12 12 v 6 m 99 0 v -6 a 12 12 0 0 1 12 -12"/>
+<path d=" M 47 64 v 33 m 99 0 v -33"/>
+<path d=" M 47 64 v 0 a 12 12 0 0 0 12 12 m 44 0 h 31 a 12 12 0 0 0 12 -12 v 0"/>
+<g class="terminal">
+<rect x="59" y="65" height="22" width="44" rx="10" ry="10"/>
+<text x="81" y="81">
+ASC</text>
+</g>
+<path d=" M 47 97 v 0 a 12 12 0 0 0 12 12 m 52 0 h 23 a 12 12 0 0 0 12 -12 v 0"/>
+<g class="terminal">
+<rect x="59" y="98" height="22" width="52" rx="10" ry="10"/>
+<text x="85" y="114">
+DESC</text>
+</g>
+</g>
+<path d=" M 168 46 h 5 a 5 5 0 0 1 5 -5 a 5 5 0 0 1 5 5 a 5 5 0 0 1 -5 5 a 5 5 0 0 1 -5 -5"/>
+<path d=" M 25 46 h 10"/>
+<path d=" M 158 46 h 10"/>
+</g>
+</svg>
+
