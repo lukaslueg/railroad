@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [unreleased]
 
+- Fix disconnected `MultiChoice` exit routes and insufficient bend clearance for short alternatives
+
 ## [0.3.9] - 2026-08-15
 - Fix `Optional` and `Repeat` padding so arrowheads fit within their advertised geometry
 - Add Rust, Coal, Navy, and Ayu [`Stylesheet`] variants

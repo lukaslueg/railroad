@@ -1535,9 +1535,28 @@ where
             .map(|column| column.y_offset + column.height)
             .max()
             .unwrap_or(0);
+        // Short children (including Empty) may leave less than one radius
+        // below their connecting line. The underpass needs two downward bends
+        // below every child exit, then two upward bends to the node exit.
+        // Keep one further radius between the underpass and the bottom edge.
+        let max_child_entry = layout
+            .columns
+            .iter()
+            .flat_map(|column| {
+                column
+                    .child_y_offsets
+                    .iter()
+                    .zip(&children[column.flat_start..column.flat_end])
+                    .map(move |(offset, child)| column.y_offset + offset + child.entry_height)
+            })
+            .max()
+            .unwrap_or(0);
         NodeGeometry {
             entry_height: layout.top_padding + layout.columns[0].entry_height,
-            height: max_column_bottom + ARC_RADIUS * 2,
+            height: cmp::max(
+                max_column_bottom + ARC_RADIUS * 2,
+                max_child_entry + ARC_RADIUS * 3,
+            ),
             width,
             children,
         }
