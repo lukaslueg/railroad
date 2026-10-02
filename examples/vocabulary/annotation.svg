@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="railroad" viewBox="0 0 122 42" height="42" width="122">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="railroad" viewBox="0 0 215 134" height="134" width="215">
 <style type="text/css">
 svg.railroad rect.railroad_canvas {
 fill: hsl(30, 20%, 95%);
@@ -57,20 +57,31 @@ stroke: black;
 }
 </style>
 <title>
-Link a node to documentation. Open the SVG directly or embed it inline to use the link.</title>
+Attach a caller-supplied label and body to a plain checkpoint. This annotation supplies no automatic grammar wording.</title>
 <rect width="100%" height="100%" class="railroad_canvas"/>
 <g class="sequence">
-<path d=" M 10 21 a 5 5 0 0 1 5 -5 a 5 5 0 0 1 5 5 a 5 5 0 0 1 -5 5 a 5 5 0 0 1 -5 -5 m 10 0 h 5"/>
-<a xlink:href="https://docs.rs/railroad/latest/railroad/struct.NonTerminal.html" class="link">
+<path d=" M 10 26 a 5 5 0 0 1 5 -5 a 5 5 0 0 1 5 5 a 5 5 0 0 1 -5 5 a 5 5 0 0 1 -5 -5 m 10 0 h 5"/>
+<g class="annotation">
+<path d=" M 35 26 h 48 M 131 26 h 49" class="annotation-rail"/>
+<path d=" M 107 10 l 24 16 l -24 16 l -24 -16 z" class="annotation-marker"/>
+<path d=" M 107 42 l 0 16" class="annotation-connector"/>
+<text class="annotation-symbol" x="107" y="31">
+!</text>
+<g class="labeledbox">
+<rect x="35" y="58" height="66" width="145"/>
+<path d=" M 35 105 h 8 m 92 0 h 45"/>
+<text class="comment" x="107" y="81">
+Only at top level</text>
 <g class="nonterminal">
-<rect x="35" y="10" height="22" width="52"/>
-<text x="61" y="26">
-expr</text>
+<rect x="43" y="94" height="22" width="92"/>
+<text x="89" y="110">
+statement</text>
 </g>
-</a>
-<path d=" M 97 21 h 5 a 5 5 0 0 1 5 -5 a 5 5 0 0 1 5 5 a 5 5 0 0 1 -5 5 a 5 5 0 0 1 -5 -5"/>
-<path d=" M 25 21 h 10"/>
-<path d=" M 87 21 h 10"/>
+</g>
+</g>
+<path d=" M 190 26 h 5 a 5 5 0 0 1 5 -5 a 5 5 0 0 1 5 5 a 5 5 0 0 1 -5 5 a 5 5 0 0 1 -5 -5"/>
+<path d=" M 25 26 h 10"/>
+<path d=" M 180 26 h 10"/>
 </g>
 </svg>
 

@@ -141,6 +141,12 @@ fn create_table_stmt() -> impl Node {
 }
 
 fn main() {
+    for slug in ["negative-lookahead", "negative-lookbehind"] {
+        let source = fs::read_to_string(format!("examples/vocabulary/{slug}.svg")).unwrap();
+        let png = render::to_png(&source, &render::FitTo::default()).unwrap();
+        fs::write(format!("examples/{slug}.png"), png).unwrap();
+    }
+
     let mut seq = Sequence::default();
     seq.push(Box::new(Start) as Box<dyn Node>)
         .push(Box::new(Terminal::new("BEGIN".to_owned())))

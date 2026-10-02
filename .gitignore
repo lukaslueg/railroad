@@ -3,5 +3,7 @@
 /examples/visuals.html
 /examples/column_constraint.png
 /examples/create_table_stmt.png
+/examples/negative-lookahead.png
+/examples/negative-lookbehind.png
 **/*.rs.bk
 Cargo.lock

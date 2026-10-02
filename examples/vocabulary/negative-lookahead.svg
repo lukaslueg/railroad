@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="railroad" viewBox="0 0 446 200" height="200" width="446">
+<style type="text/css">
+svg.railroad rect.railroad_canvas {
+fill: hsl(30, 20%, 95%);
+stroke-width: 0px;
+}
+
+svg.railroad path {
+stroke-width: 3px;
+stroke: black;
+fill: none;
+}
+
+svg.railroad .debug {
+stroke-width: 1px;
+stroke: red;
+}
+
+svg.railroad text {
+font: 14px monospace;
+text-anchor: middle;
+}
+
+svg.railroad .nonterminal text {
+font-weight: bold;
+}
+
+svg.railroad text.comment {
+font: italic 12px monospace;
+}
+
+svg.railroad rect,
+svg.railroad .annotation > path.annotation-marker {
+stroke-width: 3px;
+stroke: black;
+fill:hsl(-290, 70%, 90%);
+}
+
+svg.railroad g.labeledbox > rect,
+svg.railroad .annotation > path.annotation-connector {
+stroke-width: 1px;
+stroke: grey;
+stroke-dasharray: 5px;
+fill: rgb(90, 90, 150);
+fill-opacity: .1;
+}
+
+svg.railroad .annotation > path.annotation-connector {
+fill: none;
+}
+
+/* Annotation markers use wavy arrows distinct from rail traversal arrows. */
+
+svg.railroad .annotation > path.annotation-direction {
+stroke-width: 2px;
+stroke: black;
+}
+</style>
+<title>
+Consume one ASCII character if the upcoming input does not start with a quote, backslash, or CR. The assertion itself consumes no input.</title>
+<rect width="100%" height="100%" class="railroad_canvas"/>
+<g class="sequence">
+<path d=" M 10 26 a 5 5 0 0 1 5 -5 a 5 5 0 0 1 5 5 a 5 5 0 0 1 -5 5 a 5 5 0 0 1 -5 -5 m 10 0 h 5"/>
+<g class="sequence">
+<g class="annotation">
+<path d=" M 35 26 h 129 m -61 0 l -5 -5 m 0 10 l 5 -5 m 61 0 M 212 26 h 129 m -61 0 l -5 -5 m 0 10 l 5 -5 m 61 0" class="annotation-rail"/>
+<path d=" M 188 10 l 24 16 l -24 16 l -24 -16 z" class="annotation-marker"/>
+<path d=" M 188 42 l 0 16" class="annotation-connector"/>
+<path d=" M 180 26 c 2 -4 5 -4 7 0 c 2 4 4 0 6 0 l 3 0 m -4 -4 l 4 4 l -4 4" class="annotation-direction"/>
+<g class="labeledbox">
+<rect x="35" y="58" height="132" width="306"/>
+<path d=" M 35 105 h 8 m 84 0 h 214 m -104 0 l -5 -5 m 0 10 l 5 -5 m 104 0"/>
+<text class="comment" x="188" y="81">
+Must not match ahead; consumes no input</text>
+<g class="choice">
+<path d=" M 43 105 h 24 m 28 0 h 32"/>
+<g class="terminal">
+<rect x="67" y="94" height="22" width="28" rx="10" ry="10"/>
+<text x="81" y="110">
+&quot;</text>
+</g>
+<path d=" M 43 105 a 12 12 0 0 1 12 12 v 9 m 60 0 v -9 a 12 12 0 0 1 12 -12"/>
+<path d=" M 55 126 v 33 m 60 0 v -33"/>
+<path d=" M 55 126 v 0 a 12 12 0 0 0 12 12 m 28 0 h 8 a 12 12 0 0 0 12 -12 v 0"/>
+<g class="terminal">
+<rect x="67" y="127" height="22" width="28" rx="10" ry="10"/>
+<text x="81" y="143">
+\</text>
+</g>
+<path d=" M 55 159 v 0 a 12 12 0 0 0 12 12 m 36 0 h 0 a 12 12 0 0 0 12 -12 v 0"/>
+<g class="nonterminal">
+<rect x="67" y="160" height="22" width="36"/>
+<text x="85" y="176">
+CR</text>
+</g>
+</g>
+</g>
+</g>
+<g class="nonterminal">
+<rect x="351" y="15" height="22" width="60"/>
+<text x="381" y="31">
+ASCII</text>
+</g>
+<path d=" M 341 26 h 10"/>
+</g>
+<path d=" M 421 26 h 5 a 5 5 0 0 1 5 -5 a 5 5 0 0 1 5 5 a 5 5 0 0 1 -5 5 a 5 5 0 0 1 -5 -5"/>
+<path d=" M 25 26 h 10"/>
+<path d=" M 411 26 h 10"/>
+</g>
+</svg>
+

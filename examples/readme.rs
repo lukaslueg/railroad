@@ -173,6 +173,54 @@ fn vocabulary() -> Vocabulary {
     );
 
     guide.section(
+        "Annotations and assertion recipes",
+        "Annotations connect a checkpoint to a detached LabeledBox. Wavy arrows refer ahead or behind in the local reading direction. Labels and grammar meaning are supplied by the author; the following assertions are recipes.",
+    );
+    guide.entry(
+        "annotation",
+        "Attach a note — `Annotation`",
+        "Attach a caller-supplied label and body to a plain checkpoint. This annotation supplies no automatic grammar wording.",
+        // snippet: annotation
+        Annotation::new(LabeledBox::new(
+            NonTerminal::new("statement".to_owned()),
+            Comment::new("Only at top level".to_owned()),
+        )), // end-snippet
+    );
+    guide.entry(
+        "negative-lookahead",
+        "Negative lookahead recipe — `Annotation::new_ahead`",
+        "Consume one ASCII character if the upcoming input does not start with a quote, backslash, or CR. The assertion itself consumes no input.",
+        // snippet: negative-lookahead
+        Sequence::<Box<dyn Node>>::new(vec![
+            Box::new(Annotation::new_ahead(LabeledBox::new(
+                Choice::<Box<dyn Node>>::new(vec![
+                    Box::new(Terminal::new("\"".to_owned())),
+                    Box::new(Terminal::new("\\".to_owned())),
+                    Box::new(NonTerminal::new("CR".to_owned())),
+                ]),
+                Comment::new("Must not match ahead; consumes no input".to_owned()),
+            ))),
+            Box::new(NonTerminal::new("ASCII".to_owned())),
+        ]), // end-snippet
+    );
+    guide.entry(
+        "negative-lookbehind",
+        "Negative lookbehind recipe — `Annotation::new_behind`",
+        "Match a decimal integer, then reject exactly `0`. `START_OF_INPUT` denotes a zero-width input boundary, so `10` and `20` still pass the lookbehind. The assertion itself consumes no input.",
+        // snippet: negative-lookbehind
+        Sequence::<Box<dyn Node>>::new(vec![
+            Box::new(NonTerminal::new("DECIMAL".to_owned())),
+            Box::new(Annotation::new_behind(LabeledBox::new(
+                Sequence::<Box<dyn Node>>::new(vec![
+                    Box::new(NonTerminal::new("START_OF_INPUT".to_owned())),
+                    Box::new(Terminal::new("0".to_owned())),
+                ]),
+                Comment::new("Must not match behind; consumes no input".to_owned()),
+            ))),
+        ]), // end-snippet
+    );
+
+    guide.section(
         "Arranging the diagram",
         "Stacks and choices connect their children; grids arrange independent diagrams.",
     );

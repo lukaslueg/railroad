@@ -111,6 +111,25 @@ fn main() {
     dia!(lbox!(nonterm!("Foo"), cmt!("Read the docs regarding foo!")));
     hr!();
 
+    // Assertions, including sequences, nesting, and RTL rendering on a return rail.
+    dia!(seq!(
+        ahead(choice!(term!("\""), term!("\\"), nonterm!("CR"))),
+        nonterm!("ASCII")
+    ));
+    dia!(opt!(rpt!(seq!(
+        ahead(seq!(term!("\""), term!("##"))),
+        seq!(ahead(nonterm!("CR")), nonterm!("ASCII"))
+    ))));
+    dia!(seq!(
+        nonterm!("DECIMAL"),
+        behind(seq!(nonterm!("START_OF_INPUT"), term!("0")))
+    ));
+    dia!(rpt!(
+        nonterm!("item"),
+        seq!(ahead(term!("end")), term!(","))
+    ));
+    hr!();
+
     // Very simple, varying size
     dia!(dbg!());
     dia!(dbg!(20, 50, 50));
@@ -431,4 +450,18 @@ fn main() {
     hr!();
 
     f.write_all(b"</html>").unwrap();
+}
+
+fn ahead<N>(inner: N) -> railroad::Annotation<N, railroad::Comment> {
+    railroad::Annotation::new_ahead(railroad::LabeledBox::new(
+        inner,
+        railroad::Comment::new("Must not match ahead; consumes no input".to_owned()),
+    ))
+}
+
+fn behind<N>(inner: N) -> railroad::Annotation<N, railroad::Comment> {
+    railroad::Annotation::new_behind(railroad::LabeledBox::new(
+        inner,
+        railroad::Comment::new("Must not match behind; consumes no input".to_owned()),
+    ))
 }

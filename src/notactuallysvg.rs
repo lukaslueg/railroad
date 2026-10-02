@@ -490,6 +490,18 @@ impl PathData {
         self
     }
 
+    /// Close an internal decorative shape, joining the final and initial strokes.
+    pub(crate) fn close(mut self) -> Self {
+        self.text.push_str(" z");
+        self
+    }
+
+    /// Draw an internal decorative cubic curve without traversal arrowheads.
+    pub(crate) fn cubic_rel(mut self, x1: i64, y1: i64, x2: i64, y2: i64, x: i64, y: i64) -> Self {
+        write!(self.text, " c {x1} {y1} {x2} {y2} {x} {y}").unwrap();
+        self
+    }
+
     /// Draw a horizontal segment of length `h` from the cursor's current position.
     ///
     /// For segments longer than 50 pixels an arrowhead is automatically added at

@@ -78,6 +78,7 @@ pub mod notactuallysvg;
 pub use crate::notactuallysvg as svg;
 use crate::svg::HDir;
 mod nodes;
+pub use crate::nodes::annotations::Annotation;
 pub use crate::nodes::containers::{Choice, MultiChoice, Sequence, Stack};
 pub use crate::nodes::grids::{HorizontalGrid, VerticalGrid};
 pub use crate::nodes::text::{Comment, NonTerminal, Terminal};
@@ -200,6 +201,7 @@ pub const DEFAULT_CSS: &str = Stylesheet::Light.stylesheet();
 /// The `children` vec mirrors the order in which each composite node iterates its
 /// children during drawing, so `children[i]` corresponds to the i-th child drawn.
 /// For single-child wrappers (`Optional`, `Link`) `children[0]` is the inner node.
+/// For `Annotation`, `children[0]` is the detached `LabeledBox` (with its own child geometry).
 /// For `LabeledBox`, `children[0]` is the inner node and `children[1]` is the label.
 /// For `Repeat`, `children[0]` is the inner node and `children[1]` is the repeat node.
 /// Leaf nodes have an empty `children` vec.
@@ -501,6 +503,9 @@ trait RenderBackend {
     /// Append a path element to the current output.
     fn push_path(&mut self, path: svg::PathData) -> fmt::Result;
 
+    /// Append a path with a CSS class, separating annotations from traversable rails.
+    fn push_path_with_class(&mut self, path: svg::PathData, class: &str) -> fmt::Result;
+
     /// Append an axis-aligned rectangle to the current output.
     fn push_rect(&mut self, x: i64, y: i64, width: i64, height: i64) -> fmt::Result;
 
@@ -516,6 +521,9 @@ trait RenderBackend {
 
     /// Append a centered text element at the given coordinates.
     fn push_text(&mut self, x: i64, y: i64, text: &str) -> fmt::Result;
+
+    /// Append centered text with a CSS class for independently styled symbols.
+    fn push_text_with_class(&mut self, x: i64, y: i64, text: &str, class: &str) -> fmt::Result;
 
     /// Append a child node using cached geometry.
     fn push_child<N: Node + ?Sized>(
@@ -571,6 +579,22 @@ impl ElementBackend {
 }
 
 impl RenderBackend for ElementBackend {
+    fn push_text_with_class(&mut self, x: i64, y: i64, text: &str, class: &str) -> fmt::Result {
+        self.children.push(
+            svg::Element::new("text")
+                .set("class", class)
+                .set("x", &x)
+                .set("y", &y)
+                .text(text),
+        );
+        Ok(())
+    }
+
+    fn push_path_with_class(&mut self, path: svg::PathData, class: &str) -> fmt::Result {
+        self.children.push(path.into_path().set("class", class));
+        Ok(())
+    }
+
     fn push_path(&mut self, path: svg::PathData) -> fmt::Result {
         self.children.push(path.into_path());
         Ok(())
@@ -637,6 +661,18 @@ struct RendererBackend<'a, 'b> {
 }
 
 impl RenderBackend for RendererBackend<'_, '_> {
+    fn push_text_with_class(&mut self, x: i64, y: i64, text: &str, class: &str) -> fmt::Result {
+        self.out.text_element("text", text, |tag| {
+            tag.attr("class", class)?;
+            tag.attr("x", x)?;
+            tag.attr("y", y)
+        })
+    }
+
+    fn push_path_with_class(&mut self, path: svg::PathData, class: &str) -> fmt::Result {
+        self.out.path_with_class(&path, class)
+    }
+
     fn push_path(&mut self, path: svg::PathData) -> fmt::Result {
         self.out.path(&path)
     }

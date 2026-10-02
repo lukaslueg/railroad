@@ -27,16 +27,29 @@ svg.railroad text.comment {
 font: italic 12px monospace;
 }
 
-svg.railroad rect {
+svg.railroad rect,
+svg.railroad .annotation > path.annotation-marker {
 stroke-width: 3px;
 stroke: black;
 fill:hsl(-290, 70%, 90%);
 }
 
-svg.railroad g.labeledbox > rect {
+svg.railroad g.labeledbox > rect,
+svg.railroad .annotation > path.annotation-connector {
 stroke-width: 1px;
 stroke: grey;
 stroke-dasharray: 5px;
 fill: rgb(90, 90, 150);
 fill-opacity: .1;
+}
+
+svg.railroad .annotation > path.annotation-connector {
+fill: none;
+}
+
+/* Annotation markers use wavy arrows distinct from rail traversal arrows. */
+
+svg.railroad .annotation > path.annotation-direction {
+stroke-width: 2px;
+stroke: black;
 }

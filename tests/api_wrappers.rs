@@ -1,6 +1,9 @@
 mod common;
 
-use railroad::{Comment, Diagram, LabeledBox, Link, LinkTarget, Node, Optional, Repeat, Terminal};
+use railroad::{
+    Annotation, Comment, Diagram, LabeledBox, Link, LinkTarget, Node, Optional, Repeat, Terminal,
+    svg,
+};
 
 #[test]
 fn link_wraps_inner_node_and_emits_target_attributes() {
@@ -57,4 +60,44 @@ fn labeled_box_without_label_avoids_reserved_label_space() {
     );
 
     assert!(unlabeled.height() < labeled.height());
+}
+
+#[test]
+fn annotation_renders_the_supplied_box_and_label() {
+    let node = Annotation::new(LabeledBox::new(
+        Terminal::new("body".to_owned()),
+        Comment::new("Custom label".to_owned()),
+    ));
+    let svg = node.draw(0, 0, svg::HDir::LTR).to_string();
+
+    assert!(svg.contains("class=\"annotation-marker\""));
+    assert!(svg.contains("class=\"annotation-connector\""));
+    assert!(svg.contains("class=\"labeledbox\""));
+    assert!(svg.contains("body") && svg.contains("Custom label"));
+    assert!(svg.contains("class=\"annotation-symbol\""));
+    assert!(!svg.contains("annotation-direction"));
+}
+
+#[test]
+fn annotation_arrows_follow_the_local_reading_direction() {
+    for (ahead, dir, curve) in [
+        (true, svg::HDir::LTR, " c 2 "),
+        (true, svg::HDir::RTL, " c -2 "),
+        (false, svg::HDir::LTR, " c -2 "),
+        (false, svg::HDir::RTL, " c 2 "),
+    ] {
+        let body = LabeledBox::without_label(Terminal::new("body".to_owned()));
+        let node = if ahead {
+            Annotation::new_ahead(body)
+        } else {
+            Annotation::new_behind(body)
+        };
+        let mut svg = String::new();
+        node.render(&mut svg::Renderer::new(&mut svg), 0, 0, dir)
+            .unwrap();
+
+        assert!(svg.contains("class=\"annotation-direction\""));
+        assert!(!svg.contains("class=\"annotation-symbol\""));
+        assert!(svg.contains(curve));
+    }
 }

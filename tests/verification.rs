@@ -103,6 +103,14 @@ verify!(simple_vertical, dia!(vert!(term!("Foo"), term!("Bar"))));
 verify!(simple_horizontal, dia!(horiz!(term!("Foo"), term!("Bar"))));
 verify!(simple_repeat, dia!(rpt!(term!("Foo"))));
 verify!(simple_opt, dia!(opt!(term!("Foo"))));
+verify!(
+    negative_lookahead,
+    dia!(ahead(choice!(term!("\""), term!("\\"), nonterm!("CR"))))
+);
+verify!(
+    negative_lookbehind,
+    dia!(behind(seq!(term!("a"), term!("b"))))
+);
 verify!(simple_lbox, dia!(lbox!(term!("Foo"))));
 verify!(simple_link, dia!(lnk!(term!("Foo"))));
 verify!(
@@ -113,3 +121,17 @@ verify!(
         l
     })
 );
+
+fn ahead<N>(inner: N) -> railroad::Annotation<N, railroad::Comment> {
+    railroad::Annotation::new_ahead(railroad::LabeledBox::new(
+        inner,
+        railroad::Comment::new("Must not match ahead; consumes no input".to_owned()),
+    ))
+}
+
+fn behind<N>(inner: N) -> railroad::Annotation<N, railroad::Comment> {
+    railroad::Annotation::new_behind(railroad::LabeledBox::new(
+        inner,
+        railroad::Comment::new("Must not match behind; consumes no input".to_owned()),
+    ))
+}
