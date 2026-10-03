@@ -392,8 +392,7 @@ Align elements without resizing them.
 use railroad::*;
 
 let node = {
-    let labels = ["expr", "statement", "item"]
-        .map(|text| Comment::new(text.to_owned()));
+    let labels = ["expr", "statement", "item"].map(|text| Comment::new(text.to_owned()));
     let column_width = labels.iter().map(Node::width).max().unwrap_or(0);
     let rows = labels.into_iter().map(|label| {
         HorizontalGrid::<Box<dyn Node>>::new(vec![
