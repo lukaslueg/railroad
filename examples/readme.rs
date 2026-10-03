@@ -96,14 +96,14 @@ fn with_endpoints(node: impl Node + 'static) -> Sequence<Box<dyn Node>> {
 fn vocabulary() -> Vocabulary {
     let mut guide = Vocabulary {
         markdown: String::from(
-            "## Visual vocabulary\n\nFollow a path from start to end. Read literal tokens along the path, expand named rules, and follow the arrows around branches and loops.\n\nThe examples below use `SimpleStart` and `SimpleEnd` around each connected pattern. Expand **Rust** to see the node inside those markers; grids and the marker examples show their complete node trees.\n\n",
+            "## Visual vocabulary\n\nFollow a path from start to end. Read literal tokens along the path, expand named rules, and follow the arrows around branches and loops.\n\n",
         ),
         images: Vec::new(),
     };
 
     guide.section(
-        "Reading the rails",
-        "These patterns describe what a grammar accepts.",
+        "Tokens and control flow",
+        "Tokens, sequences, alternatives, and repetitions.",
     );
     guide.entry(
         "terminal",
@@ -114,14 +114,14 @@ fn vocabulary() -> Vocabulary {
     );
     guide.entry(
         "nonterminal",
-        "Another rule — `NonTerminal`",
+        "Named rule — `NonTerminal`",
         "Expand the named rule `expr`.",
         // snippet: nonterminal
         NonTerminal::new("expr".to_owned()), // end-snippet
     );
     guide.entry(
         "sequence",
-        "In order — `Sequence`",
+        "Ordered sequence — `Sequence`",
         "Consume `(`, an expression, and `)` in order.",
         // snippet: sequence
         Sequence::<Box<dyn Node>>::new(vec![
@@ -132,7 +132,7 @@ fn vocabulary() -> Vocabulary {
     );
     guide.entry(
         "choice",
-        "Choose one — `Choice`",
+        "Alternatives — `Choice`",
         "Choose exactly one alternative: `true` or `false`.",
         // snippet: choice
         Choice::new(vec![
@@ -142,7 +142,7 @@ fn vocabulary() -> Vocabulary {
     );
     guide.entry(
         "optional",
-        "Take it or skip it — `Optional`",
+        "Optional element — `Optional`",
         "Consume `else`, or take the upper bypass and consume nothing.",
         // snippet: optional
         Optional::new(Terminal::new("else".to_owned())), // end-snippet
@@ -173,13 +173,13 @@ fn vocabulary() -> Vocabulary {
     );
 
     guide.section(
-        "Annotations and assertion recipes",
-        "Annotations connect a checkpoint to a detached LabeledBox. Wavy arrows refer ahead or behind in the local reading direction. Labels and grammar meaning are supplied by the author; the following assertions are recipes.",
+        "Annotations and assertions",
+        "`Annotation` connects a checkpoint to a labeled box. Its marker can point ahead or behind in the reading direction. The examples below use these markers to illustrate lookahead and lookbehind assertions.",
     );
     guide.entry(
         "annotation",
         "Attach a note — `Annotation`",
-        "Attach a caller-supplied label and body to a plain checkpoint. This annotation supplies no automatic grammar wording.",
+        "Connect a checkpoint to a labeled box below the path.",
         // snippet: annotation
         Annotation::new(LabeledBox::new(
             NonTerminal::new("statement".to_owned()),
@@ -188,7 +188,7 @@ fn vocabulary() -> Vocabulary {
     );
     guide.entry(
         "negative-lookahead",
-        "Negative lookahead recipe — `Annotation::new_ahead`",
+        "Example: negative lookahead — `Annotation::new_ahead`",
         "Consume one ASCII character if the upcoming input does not start with a quote, backslash, or CR. The assertion itself consumes no input.",
         // snippet: negative-lookahead
         Sequence::<Box<dyn Node>>::new(vec![
@@ -207,7 +207,7 @@ fn vocabulary() -> Vocabulary {
     );
     guide.entry(
         "negative-lookbehind",
-        "Negative lookbehind recipe — `Annotation::new_behind`",
+        "Example: negative lookbehind — `Annotation::new_behind`",
         "Match a decimal integer, then reject exactly `0`.",
         // snippet: negative-lookbehind
         Sequence::<Box<dyn Node>>::new(vec![
@@ -223,7 +223,7 @@ fn vocabulary() -> Vocabulary {
     );
 
     guide.section(
-        "Arranging the diagram",
+        "Layout",
         "Stacks and choices connect their children; grids arrange independent diagrams.",
     );
     guide.entry(
@@ -238,7 +238,7 @@ fn vocabulary() -> Vocabulary {
         ]), // end-snippet
     );
     guide.entry(
-        "multi-choice", "Spread alternatives across columns — `MultiChoice`", "Choose one of four alternatives spread across two columns: `true`, `false`, `null`, or `undefined`.",
+        "multi-choice", "Alternatives in columns — `MultiChoice`", "Choose one of four alternatives spread across two columns: `true`, `false`, `null`, or `undefined`.",
         // snippet: multi-choice
         MultiChoice::new(vec![
             vec![
@@ -291,8 +291,8 @@ fn vocabulary() -> Vocabulary {
 
     guide.bare_entry(
         "aligned-rule-labels",
-        "Align horizontally - `Alignment`",
-        "Align elements without resizing them.",
+        "Shared label column — `Alignment`",
+        "Reserve equal widths for rule labels so each diagram body begins at the same horizontal position.",
         // snippet: aligned-rule-labels
         {
             let labels = ["expr", "statement", "item"].map(|text| Comment::new(text.to_owned()));
@@ -319,7 +319,7 @@ fn vocabulary() -> Vocabulary {
     );
     guide.bare_entry(
         "alignment",
-        "Align vertically - `Alignment`",
+        "Vertical alignment — `Alignment`",
         "Place a choice at the top, center, or bottom of equal-height boxes. The choice keeps its natural size, and its connecting rail moves with it.",
         // snippet: alignment
         {
@@ -352,12 +352,12 @@ fn vocabulary() -> Vocabulary {
     );
 
     guide.section(
-        "Explaining and navigating",
-        "Annotations and links help readers interpret a diagram without adding grammar tokens.",
+        "Labels, links, and markers",
+        "Add explanatory text, hyperlinks, and start, end, or omission markers.",
     );
     guide.entry(
         "comment",
-        "Add an annotation — `Comment`",
+        "Explanatory text — `Comment`",
         "Show explanatory text along the path, without consuming a token.",
         // snippet: comment
         Comment::new("an expression follows".to_owned()), // end-snippet
@@ -365,7 +365,7 @@ fn vocabulary() -> Vocabulary {
     guide.entry(
         "labeled-box",
         "Label a group — `LabeledBox`",
-        "Explain a group with a labeled box around its node.",
+        "Draw a box around a node, with a label above it.",
         // snippet: labeled-box
         LabeledBox::new(
             NonTerminal::new("expr".to_owned()),
@@ -418,7 +418,7 @@ fn vocabulary() -> Vocabulary {
     guide.entry(
         "continuation",
         "Omit a section — `Continuation`",
-        "An ellipsis joins the displayed parts of a diagram around a section that is not shown here.",
+        "An ellipsis marks an omitted section.",
         // snippet: continuation
         Sequence::<Box<dyn Node>>::new(vec![
             Box::new(Terminal::new("BEGIN".to_owned())),
@@ -429,7 +429,7 @@ fn vocabulary() -> Vocabulary {
     guide.entry(
         "empty",
         "Draw nothing — `Empty`",
-        "Use `Empty` where a node is required but no input is consumed. Here it fills the inner node of the labeled first alternative.",
+        "Use `Empty` where a node is required but no input is consumed. The first alternative contains a label but no token.",
         // snippet: empty
         Choice::<Box<dyn Node>>::new(vec![
             Box::new(LabeledBox::new(

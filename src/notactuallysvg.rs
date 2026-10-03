@@ -1,18 +1,14 @@
-//! Lower-level SVG building blocks used by `railroad`'s rendering layers.
+//! SVG elements, paths, and a streaming writer for custom [`crate::Node`]s.
 //!
-//! Downstream crates that implement custom [`crate::Node`]s will usually touch
-//! this module through the crate-root re-export as [`crate::svg`]. It provides
-//! three main pieces:
+//! Available as [`crate::svg`]:
 //!
-//! - [`Element`] for the compatibility draw path that builds a small SVG tree,
-//! - [`Renderer`] for the streaming render path that writes directly into a
-//!   [`std::fmt::Write`] sink,
-//! - [`PathData`] for constructing SVG path `d` attributes in a composable way.
+//! - [`Element`] builds an SVG element tree.
+//! - [`Renderer`] writes SVG directly into a [`std::fmt::Write`] sink.
+//! - [`PathData`] builds SVG path `d` attributes.
 //!
-//! For simple custom nodes, implementing [`crate::Node::draw`] with [`Element`]
-//! and [`PathData`] is often enough. Performance-sensitive or composite nodes can
-//! additionally implement [`crate::Node::render_with_geometry`] using
-//! [`Renderer`] to avoid building intermediate `Element` trees on the hot path.
+//! Implement [`crate::Node::draw`] using [`Element`] and [`PathData`]. To stream
+//! SVG without building an element tree, also implement
+//! [`crate::Node::render_with_geometry`] using [`Renderer`].
 //!
 //! # Example: custom leaf node using `Element`
 //! ```rust
@@ -105,35 +101,35 @@ use std::{
     fmt::{self, Write},
 };
 
-/// A shorthand to draw rounded corners, see [`PathData::arc`].
+/// Quarter-circle corner directions for [`PathData::arc`].
 ///
-/// Each variant names the direction the path is traveling *before* the corner
-/// (the compass point it comes from) and the direction *after* the corner
-/// (the compass point it heads toward).
+/// Each variant names the side the path enters from and the side it exits
+/// toward. For example, `EastToNorth` enters from the east, traveling west,
+/// then turns north. SVG coordinates increase to the right and downward.
 #[derive(Debug, Clone, Copy)]
 pub enum Arc {
-    /// Traveling east, turn to go north (curve up-left).
+    /// Enter from the east and exit toward the north (curve up-left).
     EastToNorth,
-    /// Traveling east, turn to go south (curve down-left).
+    /// Enter from the east and exit toward the south (curve down-left).
     EastToSouth,
-    /// Traveling north, turn to go east (curve right-down).
+    /// Enter from the north and exit toward the east (curve right-down).
     NorthToEast,
-    /// Traveling north, turn to go west (curve left-down).
+    /// Enter from the north and exit toward the west (curve left-down).
     NorthToWest,
-    /// Traveling south, turn to go east (curve right-up).
+    /// Enter from the south and exit toward the east (curve right-up).
     SouthToEast,
-    /// Traveling south, turn to go west (curve left-up).
+    /// Enter from the south and exit toward the west (curve left-up).
     SouthToWest,
-    /// Traveling west, turn to go north (curve up-right).
+    /// Enter from the west and exit toward the north (curve up-right).
     WestToNorth,
-    /// Traveling west, turn to go south (curve down-right).
+    /// Enter from the west and exit toward the south (curve down-right).
     WestToSouth,
 }
 
 /// Selects the direction in which arrows on positive-direction horizontal
 /// lines point.
 ///
-/// `LTR` (left-to-right) is the default and suits most diagrams. `RTL` is used
+/// `LTR` (left-to-right) is the default. `RTL` is used
 /// for the return arc inside [`crate::Repeat`].
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum HDir {
@@ -155,10 +151,10 @@ impl HDir {
     }
 }
 
-/// A lightweight streaming SVG writer used by the render path.
+/// An SVG writer that streams into a [`fmt::Write`] sink.
 ///
-/// `Renderer` writes directly into a [`fmt::Write`] sink and centralizes
-/// element/tag emission, text escaping, and path serialization.
+/// Writes tags, attributes, text, and paths, with XML escaping for attribute
+/// values and text unless a raw-text method is used.
 ///
 /// # Example
 /// ```rust
@@ -207,8 +203,8 @@ impl<'a> Renderer<'a> {
 
     /// Start an element opening tag.
     ///
-    /// Returns [`fmt::Error`] if `name` is not a valid XML tag name according to
-    /// this renderer's conservative validation rules.
+    /// Returns [`fmt::Error`] if `name` does not pass this renderer's tag-name
+    /// validation or the underlying writer fails.
     ///
     /// # Example
     /// ```rust
@@ -276,7 +272,7 @@ impl<'a> Renderer<'a> {
         tag.finish_empty()
     }
 
-    /// Write a text-bearing element whose body is escaped.
+    /// Write an element containing XML-escaped text.
     ///
     /// The `configure` callback may add attributes to the opening tag before the
     /// element is closed.
@@ -311,7 +307,7 @@ impl<'a> Renderer<'a> {
         self.end_element(name)
     }
 
-    /// Write a text-bearing element whose body is not escaped.
+    /// Write an element containing unescaped text.
     ///
     /// This is intended for trusted raw SVG or CSS content.
     ///
@@ -504,8 +500,9 @@ impl PathData {
 
     /// Draw a horizontal segment of length `h` from the cursor's current position.
     ///
-    /// For segments longer than 50 pixels an arrowhead is automatically added at
-    /// the midpoint, pointing in the diagram's [`HDir`] direction.
+    /// If `h` is greater than 50 or less than -50, add an arrowhead near the
+    /// midpoint. For positive `h`, it points in the [`HDir`] direction; for
+    /// negative `h`, it points in the opposite direction.
     #[must_use]
     pub fn horizontal(mut self, h: i64) -> Self {
         write!(self.text, " h {h}").unwrap();
@@ -541,8 +538,8 @@ impl PathData {
 
     /// Draw a vertical segment of height `h` from the cursor's current position.
     ///
-    /// For segments taller than 50 pixels a downward arrowhead is automatically
-    /// added at the midpoint.
+    /// If `h` is greater than 50 or less than -50, add an arrowhead near the
+    /// midpoint, pointing downward for positive `h` and upward for negative `h`.
     #[must_use]
     pub fn vertical(mut self, h: i64) -> Self {
         write!(self.text, " v {h}").unwrap();
@@ -590,7 +587,7 @@ impl fmt::Display for PathData {
     }
 }
 
-/// A pseudo-SVG Element
+/// An SVG element with attributes, text, children, and following siblings.
 ///
 /// ```
 /// use railroad::notactuallysvg as svg;
@@ -616,7 +613,14 @@ pub struct Element {
 }
 
 impl Element {
-    /// Construct a new `Element` of type `name`.
+    /// Create an SVG element with tag name `name`.
+    ///
+    /// ```rust
+    /// use railroad::svg;
+    ///
+    /// let element = svg::Element::new("g");
+    /// assert_eq!(element.to_string(), "<g/>\n");
+    /// ```
     pub fn new<T>(name: &T) -> Self
     where
         T: ToString + ?Sized,
@@ -630,7 +634,18 @@ impl Element {
         }
     }
 
-    /// Set this Element's attribute `key` to `value`
+    /// Set the attribute `key` to `value`.
+    ///
+    /// Setting the same key again replaces its value.
+    ///
+    /// ```rust
+    /// use railroad::svg;
+    ///
+    /// let element = svg::Element::new("rect")
+    ///     .set("width", &20)
+    ///     .set("width", &30);
+    /// assert_eq!(element.to_string(), "<rect width=\"30\"/>\n");
+    /// ```
     #[must_use]
     pub fn set<K, V>(mut self, key: &K, value: &V) -> Self
     where
@@ -641,7 +656,17 @@ impl Element {
         self
     }
 
-    /// Set all attributes via these `key`:`value`-pairs
+    /// Set attributes from key-value pairs.
+    ///
+    /// Attributes are written in key order.
+    ///
+    /// ```rust
+    /// use railroad::svg;
+    ///
+    /// let element = svg::Element::new("rect")
+    ///     .set_all([("width", 20), ("height", 10)]);
+    /// assert_eq!(element.to_string(), "<rect height=\"10\" width=\"20\"/>\n");
+    /// ```
     #[must_use]
     pub fn set_all(
         mut self,
@@ -654,18 +679,40 @@ impl Element {
         self
     }
 
-    /// Set the text within the opening and closing tag of this Element.
+    /// Set the element's text content, written before its children.
     ///
-    /// The text is automatically HTML-escaped. It is written before any children.
+    /// The text is XML-escaped.
+    ///
+    /// ```rust
+    /// use railroad::svg;
+    ///
+    /// let element = svg::Element::new("text")
+    ///     .add(svg::Element::new("tspan").text("suffix"))
+    ///     .text("a < b & ");
+    /// assert_eq!(element.to_string(), concat!(
+    ///     "<text>\n",
+    ///     "a &lt; b &amp; <tspan>\nsuffix</tspan>\n",
+    ///     "</text>\n",
+    /// ));
+    /// ```
     #[must_use]
     pub fn text(mut self, text: &str) -> Self {
         self.text = Some(encode_minimal(text).into_owned());
         self
     }
 
-    /// Set the text within the opening and closing tag of this Element.
+    /// Set the element's unescaped text content, written before its children.
     ///
-    /// The text is NOT automatically HTML-escaped.
+    /// Use this for trusted markup or CSS.
+    ///
+    /// ```rust
+    /// use railroad::svg;
+    ///
+    /// let element = svg::Element::new("g")
+    ///     .add(svg::Element::new("circle"))
+    ///     .raw_text("<rect/>\n");
+    /// assert_eq!(element.to_string(), "<g>\n<rect/>\n<circle/>\n</g>\n");
+    /// ```
     #[must_use]
     pub fn raw_text<T>(mut self, text: &T) -> Self
     where
@@ -675,9 +722,16 @@ impl Element {
         self
     }
 
-    /// Add a child to this Element
+    /// Add a child inside this element's opening and closing tags.
     ///
-    /// Children is written within the opening and closing tag of this Element.
+    /// ```rust
+    /// use railroad::svg;
+    ///
+    /// let element = svg::Element::new("g")
+    ///     .add(svg::Element::new("rect"))
+    ///     .add(svg::Element::new("circle"));
+    /// assert_eq!(element.to_string(), "<g>\n<rect/>\n<circle/>\n</g>\n");
+    /// ```
     #[allow(clippy::should_implement_trait)]
     #[must_use]
     pub fn add(mut self, e: Self) -> Self {
@@ -685,17 +739,31 @@ impl Element {
         self
     }
 
-    /// Add a child to this Element
+    /// Add a child inside this element's opening and closing tags.
     ///
-    /// Children is written within the opening and closing tag of this Element.
+    /// ```rust
+    /// use railroad::svg;
+    ///
+    /// let mut element = svg::Element::new("g");
+    /// element.push(svg::Element::new("rect"))
+    ///     .push(svg::Element::new("circle"));
+    /// assert_eq!(element.to_string(), "<g>\n<rect/>\n<circle/>\n</g>\n");
+    /// ```
     pub fn push(&mut self, e: Self) -> &mut Self {
         self.children.push(e);
         self
     }
 
-    /// Add a sibling to this Element
+    /// Add a sibling to be written after this element's closing tag.
     ///
-    /// Siblings is written after the closing tag of this Element.
+    /// ```rust
+    /// use railroad::svg;
+    ///
+    /// let element = svg::Element::new("g")
+    ///     .add(svg::Element::new("rect"))
+    ///     .append(svg::Element::new("circle"));
+    /// assert_eq!(element.to_string(), "<g>\n<rect/>\n</g>\n<circle/>\n");
+    /// ```
     #[must_use]
     pub fn append(mut self, e: Self) -> Self {
         self.siblings.push(e);
@@ -842,11 +910,9 @@ fn write_escaped_minimal(f: &mut (impl fmt::Write + ?Sized), inp: &str) -> fmt::
     f.write_str(&inp[last_idx..])
 }
 
-/// Escape the bare minimum of characters (`"`, `&`, `<`, `>`, `'`) needed to
-/// safely embed `inp` as text content or a double-quoted attribute value in SVG/HTML.
+/// Escape `"`, `&`, `<`, `>`, and `'` for text content or quoted attribute values.
 ///
-/// Returns a [`Cow::Borrowed`] slice when no escaping is required (i.e. when
-/// `inp` contains none of the five special characters), avoiding an allocation.
+/// Returns [`Cow::Borrowed`] when no escaping is required.
 ///
 /// # Example
 /// ```
@@ -1134,15 +1200,14 @@ const ENTITIES: [Option<&'static str>; 256] = [
     Some("&#xFF;"),
 ];
 
-/// Encode all single-byte characters in `inp` as HTML numeric entities.
+/// Escape characters up to U+00FF other than ASCII letters and digits using
+/// HTML entities.
 ///
-/// This is a stricter alternative to [`encode_minimal`] that encodes every
-/// ASCII byte (including spaces, semicolons, dashes, etc.) as an HTML entity.
-/// Multi-byte Unicode codepoints are passed through unchanged.
+/// ASCII letters and digits, and characters above U+00FF, are unchanged. This
+/// function also encodes spaces, punctuation, and Latin-1 characters such as `å`.
+/// Returns [`Cow::Borrowed`] when no escaping is required.
 ///
-/// Prefer [`encode_minimal`] for double-quoted XML attribute values in SVG;
-/// use this function only when full byte-level escaping is required (e.g.,
-/// for unquoted attribute values or legacy HTML contexts).
+/// Use [`encode_minimal`] for quoted XML attribute values in SVG.
 ///
 /// # Example
 /// ```

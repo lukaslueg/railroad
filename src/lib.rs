@@ -22,29 +22,26 @@
 //
 //! A library to create syntax ("railroad") diagrams as Scalable Vector Graphics (SVG).
 //!
-//! Railroad diagrams are a graphical way to represent context-free grammar.
-//! Every diagram has exactly one starting- and one end-point; everything that
-//! belongs to the described language is represented by one of the possible paths
-//! between those points.
+//! Railroad diagrams represent grammar rules as paths from a start point to an
+//! end point. Each path describes a sequence accepted by the rule.
 //!
-//! Using this library, diagrams are created by primitives which implemented `Node`.
-//! Primitives are combined into more complex strctures by wrapping simple elements into more
-//! complex ones.
+//! Build diagrams by combining nodes such as [`Terminal`], [`Sequence`], and
+//! [`Choice`].
 //!
 //! ```rust
 //! use railroad::*;
 //!
-//! // This diagram will be a (horizontal) sequence of simple elements
+//! // Connect the nodes in a horizontal sequence.
 //! let mut seq: Sequence<Box<dyn Node>> = Sequence::default();
 //! seq.push(Box::new(Start))
 //!    .push(Box::new(Terminal::new("BEGIN".to_owned())))
 //!    .push(Box::new(NonTerminal::new("syntax".to_owned())))
 //!    .push(Box::new(End));
 //!
-//! // The library only computes the diagram's geometry; we use CSS for layout.
-//! let mut dia = Diagram::new_with_stylesheet(seq, &Stylesheet::Light);
+//! // The library computes geometry; CSS controls appearance.
+//! let dia = Diagram::new_with_stylesheet(seq, &Stylesheet::Light);
 //!
-//! // A `Node`'s `fmt::Display` is its SVG.
+//! // Formatting a `Diagram` produces its SVG.
 //! println!("<html>{}</html>", dia);
 //!
 //! // For direct streaming, render into `svg::Renderer`.
@@ -56,18 +53,14 @@
 //!
 //! ## Implementing custom nodes
 //!
-//! Downstream crates can implement [`Node`] directly for custom primitives.
-//! The main rule is simple: a node must only draw within the geometry it
-//! advertises. If a node reports `width()`, `height()`, and `entry_height()`,
-//! its drawing must stay inside that box and keep its connecting path at
-//! `y + entry_height()`.
+//! Implement [`Node`] to add custom nodes. A node must draw within its reported
+//! bounds, with the connecting path at `y + entry_height()`.
 //!
-//! For simple leaf nodes, implementing `entry_height()`, `height()`, `width()`,
-//! and [`Node::draw`] is usually enough; the provided geometry-aware methods are
-//! correct by default. For composite nodes that position child nodes, override
-//! [`Node::compute_geometry`] and usually also [`Node::draw_with_geometry`] and
-//! [`Node::render_with_geometry`] so child geometry is computed once and reused
-//! during rendering.
+//! Leaf nodes need to implement `entry_height()`, `height()`, `width()`, and
+//! [`Node::draw`]. Composite nodes can override [`Node::compute_geometry`],
+//! [`Node::draw_with_geometry`], and [`Node::render_with_geometry`] to compute
+//! child geometry once and reuse it during rendering. Use [`svg`] to construct
+//! SVG elements and paths.
 
 use std::{
     collections::{self, HashMap},
@@ -97,20 +90,18 @@ pub use resvg;
 #[allow(dead_code)]
 type _READMETEST = ();
 
-/// Used as a form of scale throughout geometry calculations. Smaller values result in more compact
-/// diagrams.
+/// Radius of connecting arcs. Smaller values produce more compact diagrams.
 const ARC_RADIUS: i64 = 12;
 
-/// Determine the width some text will have when rendered.
-///
-/// The geometry of some primitives depends on this, which is hacky in the first place.
+/// Estimate text width from Unicode column widths.
 fn text_width(s: &str) -> usize {
     use unicode_width::UnicodeWidthStr;
-    // Use a fudge-factor of 1.05
+    // Add 5% to the column width estimate.
     s.width() + (s.width() / 20)
 }
 
-/// Pre-defined stylesheets
+/// Built-in CSS themes for diagrams.
+///
 /// ```rust
 /// use railroad::*;
 ///
@@ -125,13 +116,14 @@ fn text_width(s: &str) -> usize {
 #[derive(Debug, Default, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 #[non_exhaustive]
 pub enum Stylesheet {
-    /// The default stylesheet
+    /// The default light theme.
     #[default]
     Light,
+    /// The dark theme.
     Dark,
-    /// Variation of the `Light`-theme, compatible with what can be rendered when using `resvg`.
+    /// A light theme using CSS supported by `resvg`.
     LightRendersafe,
-    /// Variation of the `Dark`-theme, compatible with what can be rendered when using `resvg`.
+    /// A dark theme using CSS supported by `resvg`.
     DarkRendersafe,
     /// The Rust Reference's `Rust` theme.
     Rust,
@@ -144,10 +136,10 @@ pub enum Stylesheet {
 }
 
 impl Stylesheet {
-    /// Switch this stylesheet to its "dark" variant, preserving render-safety.
+    /// Return a dark theme, keeping the render-safe variant when applicable.
     ///
-    /// Dark Rust Reference themes are returned unchanged. [`Stylesheet::Rust`], which has no
-    /// theme-specific dark counterpart, is converted to [`Stylesheet::Dark`].
+    /// Dark Rust Reference themes are returned unchanged. [`Stylesheet::Rust`]
+    /// becomes [`Stylesheet::Dark`].
     #[must_use]
     pub const fn to_dark(&self) -> Self {
         match self {
@@ -157,10 +149,10 @@ impl Stylesheet {
         }
     }
 
-    /// Switch this stylesheet to its "light" variant, preserving render-safety.
+    /// Return a light theme, keeping the render-safe variant when applicable.
     ///
-    /// [`Stylesheet::Rust`] is returned unchanged. Dark Rust Reference themes, which have no
-    /// theme-specific light counterparts, are converted to [`Stylesheet::Light`].
+    /// [`Stylesheet::Rust`] is returned unchanged. Dark Rust Reference themes
+    /// become [`Stylesheet::Light`].
     #[must_use]
     pub const fn to_light(&self) -> Self {
         match self {
@@ -170,7 +162,7 @@ impl Stylesheet {
         }
     }
 
-    /// Returns `True` if this stylesheet is of a "light" variant.
+    /// Return `true` for a light theme.
     #[must_use]
     pub const fn is_light(&self) -> bool {
         matches!(self, Self::Light | Self::LightRendersafe | Self::Rust)
@@ -192,22 +184,20 @@ impl Stylesheet {
     }
 }
 
-/// Default Cascading Style Sheets for the resuling SVG.
+/// CSS for the default light theme.
 pub const DEFAULT_CSS: &str = Stylesheet::Light.stylesheet();
 
-/// Pre-computed geometry for a node and its entire subtree.
+/// Computed dimensions for a node and its children, used by the geometry-aware
+/// drawing and rendering methods.
 ///
-/// This is a transient value created by [`Node::compute_geometry`] and passed into
-/// [`Node::draw_with_geometry`]. It is never stored inside a node struct; it exists
-/// only on the call stack during the draw phase and is dropped when drawing completes.
+/// [`Node::compute_geometry`] produces this value. The order of `children` is
+/// defined by each node implementation and may differ from its draw order:
 ///
-/// The `children` vec mirrors the order in which each composite node iterates its
-/// children during drawing, so `children[i]` corresponds to the i-th child drawn.
-/// For single-child wrappers (`Alignment`, `Optional`, `Link`) `children[0]` is the inner node.
-/// For `Annotation`, `children[0]` is the detached `LabeledBox` (with its own child geometry).
-/// For `LabeledBox`, `children[0]` is the inner node and `children[1]` is the label.
-/// For `Repeat`, `children[0]` is the inner node and `children[1]` is the repeat node.
-/// Leaf nodes have an empty `children` vec.
+/// - For [`Alignment`], [`Optional`], and [`Link`], `children[0]` is the inner node.
+/// - For [`Annotation`], `children[0]` is the detached [`LabeledBox`].
+/// - For [`LabeledBox`], `children[0]` is the inner node and `children[1]` is the label.
+/// - For [`Repeat`], `children[0]` is the inner node and `children[1]` is the return-path node.
+/// - Leaf nodes have no child geometry.
 #[derive(Debug, Clone)]
 pub struct NodeGeometry {
     /// The vertical distance from this node's top edge to its connecting path.
@@ -216,7 +206,7 @@ pub struct NodeGeometry {
     pub height: i64,
     /// The total width of this node's bounding box.
     pub width: i64,
-    /// Pre-computed geometry for each child, in draw order.
+    /// Geometry for each child, in the order defined by the node implementation.
     pub children: Vec<NodeGeometry>,
 }
 
@@ -232,82 +222,80 @@ impl NodeGeometry {
 
 /// A diagram primitive that participates in layout and SVG generation.
 ///
-/// Every `Node` advertises a rectangular geometry and a single horizontal entry
-/// line inside that rectangle. Parent nodes use that geometry to position child
-/// nodes, so correctness depends on each implementation keeping its drawing
-/// inside the geometry it reports:
+/// # Geometry
+///
+/// The rectangle represents the node's bounding box; the horizontal line is its
+/// connecting path.
+///
+/// ```text
+///            ←────── width ──────→
+///        ↑   ┌───────────────────┐   ↑
+///        │   │                   │   │ entry_height
+/// height │ ──┼───────────────────┼───┤
+///        │   │                   │   │ height_below_entry
+///        │   │                   │   │
+///        ↓   └───────────────────┘   ↓
+/// ```
+///
+/// `height() = entry_height() + height_below_entry()`.
+///
+/// Parent nodes use the reported dimensions to position their children. Each
+/// implementation must satisfy these bounds and path alignment requirements:
 ///
 /// - `width()` and `height()` define the full bounding box,
 /// - `entry_height()` defines the vertical offset of the connecting path,
-/// - drawing at `(x, y)` must stay inside `x..x + width()` and `y..y + height()`,
-/// - and the path that enters or leaves the node must be aligned with
+/// - drawing at `(x, y)` must stay between `x` and `x + width()`, and between
+///   `y` and `y + height()`, including the boundaries,
+/// - any path that enters or leaves the node must be aligned with
 ///   `y + entry_height()`.
 ///
-/// For simple leaf nodes, implementing [`Node::entry_height`], [`Node::height`],
-/// [`Node::width`], and [`Node::draw`] is usually enough. The default
-/// implementations of the geometry-aware methods are correct, just not always
-/// optimal.
+/// # Implementing nodes
 ///
-/// Composite nodes that contain child nodes should usually override
-/// [`Node::compute_geometry`] so child geometry is computed once in a bottom-up
-/// pass, then override [`Node::draw_with_geometry`] and often
-/// [`Node::render_with_geometry`] to reuse that cached geometry during drawing.
+/// Leaf nodes need to implement [`Node::entry_height`], [`Node::height`],
+/// [`Node::width`], and [`Node::draw`]. The geometry-aware methods default to
+/// these methods, and the rendering methods serialize the resulting SVG element.
+///
+/// Composite nodes can override [`Node::compute_geometry`],
+/// [`Node::draw_with_geometry`], and [`Node::render_with_geometry`] to compute
+/// child geometry once and reuse it during rendering.
 pub trait Node {
-    /// The vertical distance from this element's top to where the entering,
-    /// connecting path is drawn.
+    /// The vertical distance from the node's top edge to its connecting path.
     ///
-    /// By convention, the path connecting primitives enters from the left.
-    /// Parent nodes align children by placing their connecting path at
-    /// `y + entry_height()`, so this value must match where the node actually
-    /// expects its incoming and outgoing path segments.
+    /// See the [geometry diagram](Node#geometry).
     fn entry_height(&self) -> i64;
 
-    /// This primitive's total height.
+    /// The total height of the node's bounding box.
     ///
-    /// Together with [`Node::width`], this defines the full bounding box the
-    /// node may occupy when drawn.
+    /// See the [geometry diagram](Node#geometry).
     fn height(&self) -> i64;
 
-    /// This primitive's total width.
+    /// The total width of the node's bounding box.
     ///
-    /// The node must not draw outside the horizontal range implied by this
-    /// value when positioned by a parent node.
+    /// See the [geometry diagram](Node#geometry).
     fn width(&self) -> i64;
 
-    /// The vertical distance from the height of the connecting path to the bottom.
+    /// The vertical distance from the connecting path to the node's bottom edge.
     ///
-    /// Equivalent to `height() - entry_height()`.
-    ///
-    /// This is a convenience method for parent nodes that need to align child
-    /// nodes relative to the connecting path. Implementors normally should not
-    /// override it unless they also change the meaning of the basic geometry
-    /// methods.
+    /// Equivalent to `height() - entry_height()`. See the [geometry diagram](Node#geometry).
     fn height_below_entry(&self) -> i64 {
         self.height() - self.entry_height()
     }
 
-    /// Draw this element as an `svg::Element` at the given position and direction.
+    /// Draw the node as an [`svg::Element`] at `(x, y)` in the given direction.
     ///
     /// The element must fit entirely within the bounding box defined by `(x, y)`,
     /// `width()`, and `height()`, with the connecting path at `y + entry_height()`.
     ///
-    /// For many downstream leaf nodes, this is the only drawing method that must
-    /// be implemented directly. The default geometry-aware methods delegate back
-    /// to it.
+    /// The default [`Node::draw_with_geometry`] implementation calls this method.
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element;
 
-    /// Compute geometry for this node and its entire subtree in a single bottom-up pass.
+    /// Compute dimensions for use by the geometry-aware drawing and rendering methods.
     ///
-    /// The returned [`NodeGeometry`] is a transient value intended to be passed to
-    /// [`Node::draw_with_geometry`]; it is not stored inside the node.
+    /// The default implementation records `entry_height()`, `height()`, and
+    /// `width()`, with no child geometry.
     ///
-    /// The default implementation is correct for leaf nodes because it simply
-    /// records this node's advertised geometry and assumes there are no children.
-    ///
-    /// Composite nodes should override this to recurse into their children and
-    /// store child geometry in [`NodeGeometry::children`]. That lets parent and
-    /// child rendering share one cached geometry pass instead of repeatedly
-    /// calling `entry_height()`, `height()`, and `width()` throughout the tree.
+    /// Override this for composite nodes to compute child geometry first, derive
+    /// the parent's dimensions from it, and store it in [`NodeGeometry::children`].
     fn compute_geometry(&self) -> NodeGeometry {
         NodeGeometry {
             entry_height: self.entry_height(),
@@ -317,31 +305,21 @@ pub trait Node {
         }
     }
 
-    /// Draw this element using pre-computed geometry, avoiding redundant geometry
-    /// recomputation for deeply nested structures.
+    /// Draw the node using precomputed geometry.
     ///
-    /// `geo` holds the cached dimensions for *this* node. Composite nodes should
-    /// read child geometry from `geo.children[i]` and pass it to each child's
-    /// `draw_with_geometry` call, rather than recomputing child geometry through
-    /// repeated calls to `entry_height()`, `height()`, and `width()`.
-    ///
-    /// The default implementation falls back to [`Node::draw`], which is correct
-    /// for all nodes. Leaf nodes usually do not need to override this. Composite
-    /// nodes should usually override it so the cached geometry from
-    /// [`Node::compute_geometry`] is actually used.
+    /// The default implementation calls [`Node::draw`] and ignores `geo`.
+    /// Override this for composite nodes to pass each child's geometry from
+    /// `geo.children` to its `draw_with_geometry` method.
     fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, _geo: &NodeGeometry) -> svg::Element {
         self.draw(x, y, h_dir)
     }
 
-    /// Render this element directly into an SVG renderer.
+    /// Render the node into an SVG renderer.
     ///
-    /// This is the streaming counterpart to [`Node::draw`]. The default
-    /// implementation computes geometry once and forwards to
+    /// The default implementation computes geometry and calls
     /// [`Node::render_with_geometry`].
     ///
-    /// Implementors typically do not override this method directly. Instead,
-    /// override [`Node::render_with_geometry`] if a custom streaming
-    /// implementation is worthwhile.
+    /// Override [`Node::render_with_geometry`] to stream SVG directly.
     ///
     /// # Example
     /// ```rust
@@ -359,17 +337,11 @@ pub trait Node {
         self.render_with_geometry(out, x, y, h_dir, &geo)
     }
 
-    /// Render this element using pre-computed geometry.
+    /// Render the node using precomputed geometry.
     ///
-    /// Override this for node implementations that want to stream SVG directly
-    /// without first materializing an intermediate [`svg::Element`] tree. The
-    /// default implementation preserves compatibility by serializing the result of
-    /// [`Node::draw_with_geometry`].
-    ///
-    /// Leaf nodes can often keep the default implementation. Composite nodes or
-    /// performance-sensitive nodes should usually override this together with
-    /// [`Node::draw_with_geometry`] so both rendering paths consume the same
-    /// cached geometry instead of rebuilding equivalent intermediate structures.
+    /// The default implementation serializes the element returned by
+    /// [`Node::draw_with_geometry`]. Override this to stream SVG directly, using
+    /// `geo.children` when rendering child nodes.
     fn render_with_geometry(
         &self,
         out: &mut svg::Renderer<'_>,
@@ -544,7 +516,7 @@ trait RenderBackend {
 
 /// `RenderBackend` implementation that accumulates child `svg::Element`s.
 ///
-/// This powers the compatibility `draw_with_geometry()` path.
+/// Used by `draw_with_geometry()` to build an SVG element tree.
 #[derive(Default)]
 struct ElementBackend {
     children: Vec<svg::Element>,
@@ -978,17 +950,12 @@ fn emit_text_box<B: RenderBackend>(
     backend.push_text(x + geo.width / 2, y + geo.entry_height + 5, label)
 }
 
-/// Convenience aggregation helpers for iterators and collections of [`Node`]s.
+/// Geometry aggregation methods for collections and iterators of [`Node`]s.
 ///
-/// `NodeCollection` is implemented for any `IntoIterator<Item = N>` where `N`
-/// implements [`Node`]. It is mainly a small ergonomic helper for container
-/// nodes that need to aggregate child geometry without spelling out the same
-/// iterator expressions repeatedly.
+/// Implemented for any `IntoIterator` whose items implement [`Node`]. Each method
+/// consumes the iterator; use `.iter()` to borrow a collection.
 ///
-/// The methods consume `self`, so they work naturally on iterators as well as on
-/// owned collections. When called on borrowed collections such as `slice.iter()`
-/// or `vec.iter()`, the iterator items are references, and the blanket `Node`
-/// implementations for references keep the methods usable.
+/// All methods return zero for empty collections.
 ///
 /// # Example
 /// ```rust
@@ -1006,9 +973,6 @@ fn emit_text_box<B: RenderBackend>(
 pub trait NodeCollection {
     /// Return the maximum [`Node::entry_height`] in the collection.
     ///
-    /// This is commonly used by horizontal container nodes that align several
-    /// children to the same connecting path.
-    ///
     /// # Example
     /// ```rust
     /// use railroad::{Comment, NodeCollection, Start};
@@ -1023,9 +987,6 @@ pub trait NodeCollection {
     fn max_height(self) -> i64;
 
     /// Return the maximum [`Node::height_below_entry`] in the collection.
-    ///
-    /// This is useful when children are aligned by their connecting path and the
-    /// parent needs enough space below that path for the deepest child.
     ///
     /// # Example
     /// ```rust
@@ -1043,9 +1004,6 @@ pub trait NodeCollection {
     fn max_width(self) -> i64;
 
     /// Return the sum of all [`Node::width`] values in the collection.
-    ///
-    /// This is typically used by horizontal container nodes before adding their
-    /// own inter-child spacing.
     ///
     /// # Example
     /// ```rust
@@ -1105,7 +1063,7 @@ where
     }
 }
 
-/// A symbol indicating the logical end of a syntax-diagram via two vertical bars.
+/// An end marker drawn as two vertical bars.
 #[derive(Debug, Clone, Default)]
 pub struct End;
 
@@ -1161,7 +1119,7 @@ impl Node for End {
     }
 }
 
-/// A symbol indicating the logical start of a syntax-diagram via a circle
+/// A start marker drawn as a circle.
 #[derive(Debug, Clone, Default)]
 pub struct SimpleStart;
 
@@ -1219,7 +1177,7 @@ impl Node for SimpleStart {
     }
 }
 
-/// A symbol indicating the logical end of a syntax-diagram via a circle
+/// An end marker drawn as a circle.
 #[derive(Debug, Clone, Default)]
 pub struct SimpleEnd;
 
@@ -1275,7 +1233,7 @@ impl Node for SimpleEnd {
     }
 }
 
-/// A symbol indicating the logical start of a syntax-diagram via two vertical bars.
+/// A start marker drawn as two vertical bars.
 #[derive(Debug, Clone, Default)]
 pub struct Start;
 
@@ -1419,10 +1377,7 @@ impl Node for ContinuationEnd {
     }
 }
 
-/// A three-dot ellipsis marking a portion of a diagram that is not shown here.
-///
-/// This marks an omission in the displayed diagram; it does not specify what
-/// the omitted portion of the grammar accepts.
+/// A three-dot ellipsis marking an omitted section of a diagram.
 #[derive(Debug, Clone, Default)]
 pub struct Continuation;
 
@@ -1576,12 +1531,12 @@ impl Node for Debug {
     }
 }
 
-/// A dummy-element which has no size and draws nothing.
+/// A node with zero width and height that draws nothing.
 ///
-/// This can be used in conjunction with `Choice` (to indicate that one of the options
-/// is blank, a shorthand for an `Optional(Choice)`), `Repeat` (if there are
-/// zero-or-more repetitions or if there is no joining element), or `LabeledBox`
-/// (if the label should be empty).
+/// Use it as an alternative in [`Choice`] to allow an empty match, as the
+/// return-path node in [`Repeat`] when no separator is needed, or as the label
+/// in [`LabeledBox`] when no label is needed. For zero-or-more repetitions, wrap
+/// [`Repeat`] in [`Optional`].
 #[derive(Debug, Clone, Default)]
 pub struct Empty;
 
@@ -1616,15 +1571,14 @@ impl Node for Empty {
     }
 }
 
-/// The top-level container that renders a node tree as a complete SVG document.
+/// A container that renders a node tree as a complete SVG document.
 ///
-/// `Diagram` wraps a root [`Node`], computes its geometry, and emits a
-/// self-contained `<svg>` element. CSS stylesheets and arbitrary extra SVG
-/// elements can be injected before drawing.
+/// `Diagram` wraps a root [`Node`] and emits an `<svg>` element. Add stylesheets
+/// with [`Diagram::add_stylesheet`] or [`Diagram::add_css`], and extra SVG elements
+/// with [`Diagram::add_element`].
 ///
-/// The `fmt::Display` implementation (and [`Diagram::write`]) both use the
-/// two-phase geometry caching pipeline internally, so rendering is O(n) in
-/// the number of nodes.
+/// Formatting the diagram or calling [`Diagram::write`] computes geometry before
+/// rendering and passes it to the node's geometry-aware rendering method.
 ///
 /// # Example
 /// ```rust
@@ -1649,7 +1603,7 @@ pub struct Diagram<N> {
 }
 
 impl<N: Node> Diagram<N> {
-    /// Create a diagram using the given root-element.
+    /// Create a diagram with the given root node and no stylesheet.
     ///
     /// ```
     /// use railroad::*;
@@ -1674,7 +1628,7 @@ impl<N: Node> Diagram<N> {
         }
     }
 
-    /// Create a diagram using the given root-element, adding the given stylesheet.
+    /// Create a diagram with the given root node and stylesheet.
     ///
     /// ```rust
     /// use railroad::*;
@@ -1693,7 +1647,7 @@ impl<N: Node> Diagram<N> {
         dia
     }
 
-    /// Create a diagram which has this library's default CSS style included.
+    /// Create a diagram with the default light stylesheet.
     pub fn with_default_css(root: N) -> Self {
         let mut dia = Self::new(root);
         dia.add_default_css();
@@ -1719,18 +1673,18 @@ impl<N: Node> Diagram<N> {
         );
     }
 
-    /// Set an attribute on the `<svg>`-tag.
+    /// Return the entry for `key` in the outer `<svg>` element's attributes.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.extra_attributes.entry(key)
     }
 
-    /// Add an additional `svg::Element` which is written before the root-element
+    /// Add an SVG element to be written before the root node.
     pub fn add_element(&mut self, e: svg::Element) -> &mut Self {
         self.extra_elements.push(e);
         self
     }
 
-    /// Write this diagram's SVG-code to the given writer.
+    /// Write the diagram's SVG to the given writer.
     ///
     /// # Errors
     /// Returns errors in the underlying writer.

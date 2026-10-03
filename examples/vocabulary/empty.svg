@@ -71,7 +71,7 @@ stroke: black;
 }
 </style>
 <title>
-Use `Empty` where a node is required but no input is consumed. Here it fills the inner node of the labeled first alternative.</title>
+Use `Empty` where a node is required but no input is consumed. The first alternative contains a label but no token.</title>
 <rect width="100%" height="100%" class="railroad_canvas"/>
 <g class="sequence">
 <path d=" M 10 46 a 5 5 0 0 1 5 -5 a 5 5 0 0 1 5 5 a 5 5 0 0 1 -5 5 a 5 5 0 0 1 -5 -5 m 10 0 h 5"/>

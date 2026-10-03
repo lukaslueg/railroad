@@ -71,7 +71,7 @@ stroke: black;
 }
 </style>
 <title>
-Explain a group with a labeled box around its node.</title>
+Draw a box around a node, with a label above it.</title>
 <rect width="100%" height="100%" class="railroad_canvas"/>
 <g class="sequence">
 <path d=" M 10 57 a 5 5 0 0 1 5 -5 a 5 5 0 0 1 5 5 a 5 5 0 0 1 -5 5 a 5 5 0 0 1 -5 -5 m 10 0 h 5"/>

@@ -71,7 +71,7 @@ stroke: black;
 }
 </style>
 <title>
-An ellipsis joins the displayed parts of a diagram around a section that is not shown here.</title>
+An ellipsis marks an omitted section.</title>
 <rect width="100%" height="100%" class="railroad_canvas"/>
 <g class="sequence">
 <path d=" M 10 21 a 5 5 0 0 1 5 -5 a 5 5 0 0 1 5 5 a 5 5 0 0 1 -5 5 a 5 5 0 0 1 -5 -5 m 10 0 h 5"/>

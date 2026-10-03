@@ -8,7 +8,7 @@ use crate::{
     text_width,
 };
 
-/// A `Terminal`-symbol, drawn as a rectangle with rounded corners.
+/// A literal token, drawn as a rectangle with rounded corners.
 #[derive(Debug, Clone)]
 pub struct Terminal {
     label: String,
@@ -18,7 +18,7 @@ pub struct Terminal {
 impl Terminal {
     /// Construct a `Terminal` with the given visible label.
     ///
-    /// The label is HTML-escaped when rendered, so arbitrary text is safe to pass.
+    /// The label is XML-escaped when rendered.
     ///
     /// # Example
     /// ```rust
@@ -38,7 +38,7 @@ impl Terminal {
         t
     }
 
-    /// Access an attribute on the main SVG-element that will be drawn.
+    /// Return the entry for `key` in the outer `<g>` element's attributes.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
@@ -99,7 +99,7 @@ impl Node for Terminal {
     }
 }
 
-/// A `NonTerminal`, drawn as a rectangle.
+/// A named grammar rule, drawn as a rectangle.
 #[derive(Debug, Clone)]
 pub struct NonTerminal {
     label: String,
@@ -109,7 +109,7 @@ pub struct NonTerminal {
 impl NonTerminal {
     /// Construct a `NonTerminal` with the given visible label.
     ///
-    /// The label is HTML-escaped when rendered, so arbitrary text is safe to pass.
+    /// The label is XML-escaped when rendered.
     ///
     /// # Example
     /// ```rust
@@ -129,7 +129,7 @@ impl NonTerminal {
         nt
     }
 
-    /// Access an attribute on the main SVG-element that will be drawn.
+    /// Return the entry for `key` in the outer `<g>` element's attributes.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
@@ -190,9 +190,9 @@ impl Node for NonTerminal {
     }
 }
 
-/// A label / verbatim text drawn inline on the connecting path.
+/// Explanatory text drawn inline on the connecting path.
 ///
-/// Useful as a label for [`crate::LabeledBox`] or as a lightweight annotation
+/// Use as a label for [`crate::LabeledBox`] or as explanatory text
 /// within a [`crate::Sequence`].
 #[derive(Debug, Clone)]
 pub struct Comment {
@@ -203,7 +203,7 @@ pub struct Comment {
 impl Comment {
     /// Construct a `Comment` with the given text.
     ///
-    /// The text is HTML-escaped when rendered, so arbitrary strings are safe to pass.
+    /// The text is XML-escaped when rendered.
     ///
     /// # Example
     /// ```rust
@@ -223,7 +223,7 @@ impl Comment {
         c
     }
 
-    /// Access an attribute on the main SVG-element that will be drawn.
+    /// Return the entry for `key` in the `<text>` element's attributes.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }

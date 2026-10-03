@@ -33,7 +33,7 @@ pub enum VerticalAlignment {
     Bottom,
 }
 
-/// Reserve a minimum rectangle and align a child inside it without resizing it.
+/// Reserve minimum dimensions and align a child within them without resizing it.
 ///
 /// Zero, negative values, and values below the child's natural size do not enlarge
 /// that dimension. Horizontal start/end placement follows [`svg::HDir`]. Vertical
@@ -70,12 +70,12 @@ pub struct Alignment<N> {
 }
 
 impl<N> Alignment<N> {
-    /// Wrap `inner` with the given minimum size, placement, and rail policy.
+    /// Wrap `inner` with the given minimum dimensions and alignment.
     ///
     /// Zero and negative values have no effect on the child's natural size.
     ///
-    /// `connect_rails` bridges horizontal space on both sides at the child's
-    /// translated entry height. Pass `false` to leave that space blank.
+    /// If `connect_rails` is `true`, draw connecting paths across the horizontal
+    /// padding at the child's entry height. Otherwise, leave the padding blank.
     #[must_use]
     pub fn new(
         inner: N,
@@ -102,7 +102,7 @@ impl<N> Alignment<N> {
         self.inner
     }
 
-    /// Access an attribute on the main SVG-element that will be drawn.
+    /// Return the entry for `key` in the outer `<g>` element's attributes.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
@@ -207,7 +207,7 @@ impl<N: Node> Node for Alignment<N> {
     }
 }
 
-/// Possible targets for `Link`.
+/// Browsing contexts for [`Link`].
 ///
 /// Maps to the HTML `target` attribute on the generated `<a>` element.
 #[derive(Debug, Default, Clone, Copy)]
@@ -221,7 +221,7 @@ pub enum LinkTarget {
     Top,
 }
 
-/// Wraps another primitive, making it a clickable link to some URI.
+/// A node wrapped in a clickable link to a URI.
 #[derive(Debug, Clone)]
 pub struct Link<N> {
     inner: N,
@@ -233,8 +233,7 @@ pub struct Link<N> {
 impl<N> Link<N> {
     /// Wrap `inner` in a clickable link pointing to `uri`.
     ///
-    /// The URI is placed in an SVG anchor attribute and is HTML-escaped before
-    /// being written into the SVG, so arbitrary strings are safe to pass.
+    /// The URI is XML-escaped when written to the SVG anchor attribute.
     ///
     /// # Example
     /// ```rust
@@ -261,7 +260,7 @@ impl<N> Link<N> {
         self.target = target;
     }
 
-    /// Access an attribute on the main SVG-element that will be drawn.
+    /// Return the entry for `key` in the outer `<a>` element's attributes.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
@@ -368,9 +367,7 @@ where
     }
 }
 
-/// Wraps another element to make that element logically optional.
-///
-/// Draws a separate path above, which skips the given element.
+/// A node with a bypass path above it, allowing it to be skipped.
 #[derive(Debug, Clone, Default)]
 pub struct Optional<N> {
     inner: N,
@@ -402,7 +399,7 @@ impl<N> Optional<N> {
         self.inner
     }
 
-    /// Access an attribute on the main SVG-element that will be drawn.
+    /// Return the entry for `key` in the outer `<g>` element's attributes.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
@@ -522,12 +519,12 @@ where
     }
 }
 
-/// Wraps one element by providing a backwards-path through another element.
+/// A node with a return path below it, allowing one or more occurrences.
 ///
-/// The main path flows through `inner` left-to-right. A return arc curves below
-/// and carries the path through `repeat` right-to-left, allowing the sequence to
-/// be traversed multiple times. Use [`Empty`] for `repeat` when no label or
-/// content is needed on the return path.
+/// The main path passes through `inner` in the reading direction. The return
+/// path passes through `repeat` in the opposite direction before returning to
+/// `inner`. Use [`Empty`] for `repeat` when no separator is needed, or wrap the
+/// repetition in [`Optional`] to allow zero occurrences.
 #[derive(Debug, Clone)]
 pub struct Repeat<I, R> {
     inner: I,
@@ -543,7 +540,7 @@ impl<I, R> Repeat<I, R> {
     /// ```rust
     /// use railroad::*;
     ///
-    /// // Zero-or-more repetitions with no label on the back-arc
+    /// // One or more items with no separator.
     /// let r = Repeat::new(Terminal::new("item".to_owned()), Empty);
     /// assert!(Diagram::new(r).to_string().starts_with("<svg"));
     /// ```
@@ -558,7 +555,7 @@ impl<I, R> Repeat<I, R> {
         r
     }
 
-    /// Access an attribute on the main SVG-element that will be drawn.
+    /// Return the entry for `key` in the outer `<g>` element's attributes.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
@@ -754,9 +751,9 @@ where
     }
 }
 
-/// A box drawn around the given element and a label placed inside the box, above the element.
+/// A box around a node, with a label above the node inside the box.
 ///
-/// You may want to use `crate::Comment` or `Empty` for the label.
+/// Use [`crate::Comment`] for a text label or [`Empty`] for no label.
 #[derive(Debug, Clone)]
 pub struct LabeledBox<T, U> {
     inner: T,
@@ -769,7 +766,7 @@ pub struct LabeledBox<T, U> {
 impl<T> LabeledBox<T, Empty> {
     /// Construct a `LabeledBox` around `inner` with no label.
     ///
-    /// This is a convenience shorthand for `LabeledBox::new(inner, Empty)`.
+    /// Equivalent to `LabeledBox::new(inner, Empty)`.
     pub fn without_label(inner: T) -> Self {
         Self::new(inner, Empty)
     }
@@ -802,7 +799,7 @@ impl<T, U> LabeledBox<T, U> {
         l
     }
 
-    /// Access an attribute on the main SVG-element that will be drawn.
+    /// Return the entry for `key` in the outer `<g>` element's attributes.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }

@@ -6,12 +6,12 @@
 [![Docs](https://docs.rs/railroad/badge.svg)](https://docs.rs/railroad)
 
 **[Live demo](https://lukaslueg.github.io/macro_railroad_wasm_demo/)** ([code](https://github.com/lukaslueg/macro_railroad_wasm))
-**[Some examples](https://htmlpreview.github.io/?https://github.com/lukaslueg/railroad_dsl/blob/master/examples/example_diagrams.html)** using a small [DSL of it's own](https://github.com/lukaslueg/railroad_dsl).
+**[Some examples](https://htmlpreview.github.io/?https://github.com/lukaslueg/railroad_dsl/blob/master/examples/example_diagrams.html)** using a small [DSL of its own](https://github.com/lukaslueg/railroad_dsl).
 
 
-Railroad diagrams are a way to represent context-free grammar. Every diagram has exactly one starting- and end-point; everything that belongs to the described language is represented by one of the possible paths between those points.
+Railroad diagrams represent grammar rules as paths from a start point to an end point. Each path describes a sequence accepted by the rule.
 
-Using this library, diagrams are created using primitives which implement `Node`. Primitives are combined into more complex structures by wrapping simple elements into more complex ones. The public API stays flat at the crate root, so built-in nodes such as `Sequence`, `Choice`, `Terminal`, `Optional`, and `Diagram` are all available directly from `railroad::*`.
+Build diagrams by combining nodes such as `Terminal`, `Sequence`, and `Choice`. All built-in nodes are available at the crate root.
 
 
 ```rust
@@ -35,13 +35,11 @@ println!("{}", dia);
 
 Follow a path from start to end. Read literal tokens along the path, expand named rules, and follow the arrows around branches and loops.
 
-The examples below use `SimpleStart` and `SimpleEnd` around each connected pattern. Expand **Rust** to see the node inside those markers; grids and the marker examples show their complete node trees.
-
 ---
 
-**Reading the rails**
+**Tokens and control flow**
 
-These patterns describe what a grammar accepts.
+Tokens, sequences, alternatives, and repetitions.
 
 ### Literal token — `Terminal`
 
@@ -60,7 +58,7 @@ let node = Terminal::new("if".to_owned());
 
 </details>
 
-### Another rule — `NonTerminal`
+### Named rule — `NonTerminal`
 
 Expand the named rule `expr`.
 
@@ -77,7 +75,7 @@ let node = NonTerminal::new("expr".to_owned());
 
 </details>
 
-### In order — `Sequence`
+### Ordered sequence — `Sequence`
 
 Consume `(`, an expression, and `)` in order.
 
@@ -98,7 +96,7 @@ let node = Sequence::<Box<dyn Node>>::new(vec![
 
 </details>
 
-### Choose one — `Choice`
+### Alternatives — `Choice`
 
 Choose exactly one alternative: `true` or `false`.
 
@@ -118,7 +116,7 @@ let node = Choice::new(vec![
 
 </details>
 
-### Take it or skip it — `Optional`
+### Optional element — `Optional`
 
 Consume `else`, or take the upper bypass and consume nothing.
 
@@ -191,15 +189,15 @@ let node = Repeat::new(
 
 ---
 
-**Annotations and assertion recipes**
+**Annotations and assertions**
 
-Annotations connect a checkpoint to a detached LabeledBox. Wavy arrows refer ahead or behind in the local reading direction. Labels and grammar meaning are supplied by the author; the following assertions are recipes.
+`Annotation` connects a checkpoint to a labeled box. Its marker can point ahead or behind in the reading direction. The examples below use these markers to illustrate lookahead and lookbehind assertions.
 
 ### Attach a note — `Annotation`
 
-Attach a caller-supplied label and body to a plain checkpoint. This annotation supplies no automatic grammar wording.
+Connect a checkpoint to a labeled box below the path.
 
-![Attach a caller-supplied label and body to a plain checkpoint. This annotation supplies no automatic grammar wording.](examples/vocabulary/annotation.svg)
+![Connect a checkpoint to a labeled box below the path.](examples/vocabulary/annotation.svg)
 
 <details>
 <summary>Rust</summary>
@@ -215,7 +213,7 @@ let node = Annotation::new(LabeledBox::new(
 
 </details>
 
-### Negative lookahead recipe — `Annotation::new_ahead`
+### Example: negative lookahead — `Annotation::new_ahead`
 
 Consume one ASCII character if the upcoming input does not start with a quote, backslash, or CR. The assertion itself consumes no input.
 
@@ -244,7 +242,7 @@ let node = Sequence::<Box<dyn Node>>::new(vec![
 
 </details>
 
-### Negative lookbehind recipe — `Annotation::new_behind`
+### Example: negative lookbehind — `Annotation::new_behind`
 
 Match a decimal integer, then reject exactly `0`.
 
@@ -272,7 +270,7 @@ let node = Sequence::<Box<dyn Node>>::new(vec![
 
 ---
 
-**Arranging the diagram**
+**Layout**
 
 Stacks and choices connect their children; grids arrange independent diagrams.
 
@@ -297,7 +295,7 @@ let node = Stack::<Box<dyn Node>>::new(vec![
 
 </details>
 
-### Spread alternatives across columns — `MultiChoice`
+### Alternatives in columns — `MultiChoice`
 
 Choose one of four alternatives spread across two columns: `true`, `false`, `null`, or `undefined`.
 
@@ -379,11 +377,11 @@ let node = HorizontalGrid::new(vec![
 
 </details>
 
-### Align horizontally - `Alignment`
+### Shared label column — `Alignment`
 
-Align elements without resizing them.
+Reserve equal widths for rule labels so each diagram body begins at the same horizontal position.
 
-![Align elements without resizing them.](examples/vocabulary/aligned-rule-labels.svg)
+![Reserve equal widths for rule labels so each diagram body begins at the same horizontal position.](examples/vocabulary/aligned-rule-labels.svg)
 
 <details>
 <summary>Rust</summary>
@@ -417,7 +415,7 @@ let node = {
 
 </details>
 
-### Align vertically - `Alignment`
+### Vertical alignment — `Alignment`
 
 Place a choice at the top, center, or bottom of equal-height boxes. The choice keeps its natural size, and its connecting rail moves with it.
 
@@ -462,11 +460,11 @@ let node = {
 
 ---
 
-**Explaining and navigating**
+**Labels, links, and markers**
 
-Annotations and links help readers interpret a diagram without adding grammar tokens.
+Add explanatory text, hyperlinks, and start, end, or omission markers.
 
-### Add an annotation — `Comment`
+### Explanatory text — `Comment`
 
 Show explanatory text along the path, without consuming a token.
 
@@ -485,9 +483,9 @@ let node = Comment::new("an expression follows".to_owned());
 
 ### Label a group — `LabeledBox`
 
-Explain a group with a labeled box around its node.
+Draw a box around a node, with a label above it.
 
-![Explain a group with a labeled box around its node.](examples/vocabulary/labeled-box.svg)
+![Draw a box around a node, with a label above it.](examples/vocabulary/labeled-box.svg)
 
 <details>
 <summary>Rust</summary>
@@ -588,9 +586,9 @@ let node = Sequence::<Box<dyn Node>>::new(vec![
 
 ### Omit a section — `Continuation`
 
-An ellipsis joins the displayed parts of a diagram around a section that is not shown here.
+An ellipsis marks an omitted section.
 
-![An ellipsis joins the displayed parts of a diagram around a section that is not shown here.](examples/vocabulary/continuation.svg)
+![An ellipsis marks an omitted section.](examples/vocabulary/continuation.svg)
 
 <details>
 <summary>Rust</summary>
@@ -609,9 +607,9 @@ let node = Sequence::<Box<dyn Node>>::new(vec![
 
 ### Draw nothing — `Empty`
 
-Use `Empty` where a node is required but no input is consumed. Here it fills the inner node of the labeled first alternative.
+Use `Empty` where a node is required but no input is consumed. The first alternative contains a label but no token.
 
-![Use `Empty` where a node is required but no input is consumed. Here it fills the inner node of the labeled first alternative.](examples/vocabulary/empty.svg)
+![Use `Empty` where a node is required but no input is consumed. The first alternative contains a label but no token.](examples/vocabulary/empty.svg)
 
 <details>
 <summary>Rust</summary>
@@ -642,19 +640,23 @@ Check: cargo run --no-default-features --example readme -- --check
 
 ## Implementing [`Node`](https://docs.rs/railroad/latest/railroad/trait.Node.html)
 
-For simple custom nodes, implementing `entry_height()`, `height()`, `width()`, and `draw()` is often enough. A custom node must only draw within the geometry it advertises, and its connecting path must stay at `y + entry_height()`. Composite or performance-sensitive nodes should usually override `compute_geometry()` and the geometry-aware draw/render hooks so child geometry is computed once and reused.
+Custom nodes must draw within their reported bounds, with the connecting path at `y + entry_height()`. Leaf nodes need to implement `entry_height()`, `height()`, `width()`, and `draw()`. Composite nodes can override `compute_geometry()`, `draw_with_geometry()`, and `render_with_geometry()` to compute child geometry once and reuse it during rendering.
 
-The lower-level SVG helpers are available as `railroad::svg`. Downstream crates can use them to build custom `Node` implementations while still exposing their nodes through the regular `railroad` API.
+Use `railroad::svg` to construct SVG elements and paths. See the [crate documentation](https://docs.rs/railroad/latest/railroad/) for the full API.
 
-When adding new `Node` primitives to this library, `examples/visuals.rs` is a useful manual harness for generating edge cases and checking layout. Use the `visual-debug` feature to add guide lines to the rendered diagram and extra metadata to the SVG output.
+## Developing nodes
 
-See https://docs.rs for more information.
+Run `cargo run --example visuals` to generate `examples/visuals.html` for manual layout checks. Add cases to `examples/visuals.rs` when developing a node. Enable the `visual-debug` feature to show guide lines and include geometry metadata in the SVG.
+
+## Validation
+
+The test suite validates SVG test cases against the W3C SVG 1.1 DTD and all bundled CSS stylesheets with the Nu Html Checker. A validation failure caused by the library's provided nodes, rendering methods, or bundled stylesheets is considered a bug and should be reported as such.
 
 ---
 
 ## Themes
 
-This library comes with a set of pre-defined [themes](https://docs.rs/railroad/latest/railroad/enum.Stylesheet.html). Existing themes can be modified and custom themes can be created using CSS.
+Choose a built-in [theme](https://docs.rs/railroad/latest/railroad/enum.Stylesheet.html) or add custom CSS with `Diagram::add_css`.
 
 ### Default light
 ![Default light](examples/theme_light.jpg)

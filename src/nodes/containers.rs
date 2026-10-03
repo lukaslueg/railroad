@@ -11,7 +11,7 @@ use crate::{
 
 /// A horizontal group of elements, connected from left to right.
 ///
-/// Also see `Stack` for a vertical group of elements.
+/// See [`Stack`] for a connected vertical sequence.
 #[derive(Debug, Clone)]
 pub struct Sequence<N> {
     children: Vec<N>,
@@ -221,7 +221,7 @@ where
 
 /// A vertical group of elements, drawn from top to bottom.
 ///
-/// Also see `Sequence` for a horizontal group of elements.
+/// See [`Sequence`] for a connected horizontal sequence.
 #[derive(Debug, Clone)]
 pub struct Stack<N> {
     children: Vec<N>,
@@ -268,7 +268,7 @@ impl<N> Stack<N> {
         self.children
     }
 
-    /// Access an attribute on the main SVG-element that will be drawn.
+    /// Return the entry for `key` in the outer `<g>` element's attributes.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
@@ -545,10 +545,9 @@ where
     }
 }
 
-/// A container of elements, drawn vertically, where exactly one element has to be picked
+/// Alternatives arranged vertically, with a path through each alternative.
 ///
-/// Use `Empty` as one of the elements to make the entire `Choice` optional (a shorthand for
-/// `Optional(Choice(..))`.
+/// Include [`crate::Empty`] as an alternative to allow an empty match.
 #[derive(Debug, Clone)]
 pub struct Choice<N> {
     children: Vec<N>,
@@ -587,7 +586,7 @@ impl<N> Choice<N> {
         self.children.push(child);
     }
 
-    /// Access an attribute on the main SVG-element that will be drawn.
+    /// Return the entry for `key` in the outer `<g>` element's attributes.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
@@ -941,10 +940,10 @@ struct MultiChoiceLayout {
     exit_gutter: i64,
 }
 
-/// A multi-column container where exactly one child alternative has to be picked.
+/// Alternatives arranged in columns, with a path through each alternative.
 ///
-/// `MultiChoice` is a column-first generalization of [`Choice`]. Each inner
-/// vector is drawn as one vertical column of alternatives.
+/// Each inner vector is one vertical column of alternatives. Use [`Choice`]
+/// for a single column.
 #[derive(Debug, Clone)]
 pub struct MultiChoice<N> {
     columns: Vec<Vec<N>>,
@@ -956,8 +955,8 @@ pub struct MultiChoice<N> {
 impl<N> MultiChoice<N> {
     /// Create a `MultiChoice` from ordered columns of alternatives.
     ///
-    /// Empty columns are ignored for layout. With no non-empty columns, or with
-    /// one non-empty column, the node uses `Choice`-compatible geometry.
+    /// Empty columns are ignored for layout. With zero or one non-empty column,
+    /// the dimensions match those of [`Choice`].
     #[must_use]
     pub fn new(columns: Vec<Vec<N>>) -> Self {
         let mut c = Self {
@@ -974,7 +973,7 @@ impl<N> MultiChoice<N> {
         self.columns.push(column);
     }
 
-    /// Access an attribute on the main SVG-element that will be drawn.
+    /// Return the entry for `key` in the outer `<g>` element's attributes.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }

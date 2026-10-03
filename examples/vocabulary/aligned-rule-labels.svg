@@ -71,7 +71,7 @@ stroke: black;
 }
 </style>
 <title>
-Align elements without resizing them.</title>
+Reserve equal widths for rule labels so each diagram body begins at the same horizontal position.</title>
 <rect width="100%" height="100%" class="railroad_canvas"/>
 <g class="verticalgrid">
 <g class="horizontalgrid">

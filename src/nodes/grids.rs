@@ -44,7 +44,7 @@ impl<N> VerticalGrid<N> {
         self.children
     }
 
-    /// Access an attribute on the main SVG-element that will be drawn.
+    /// Return the entry for `key` in the outer `<g>` element's attributes.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
@@ -193,7 +193,7 @@ impl<N> HorizontalGrid<N> {
         self.children
     }
 
-    /// Access an attribute on the main SVG-element that will be drawn.
+    /// Return the entry for `key` in the outer `<g>` element's attributes.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }

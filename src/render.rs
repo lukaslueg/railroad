@@ -1,8 +1,8 @@
-//! A shorthand for rendering diagrams to images, using `resvg`'s default options.
+//! Render SVG diagrams to PNG using `resvg` with system fonts.
 //!
-//! This module is only available if the `resvg`-feature is active.
+//! Available when the `resvg` feature is enabled.
 
-/// Errors encountered while rendering
+/// Errors encountered while rendering SVG to PNG.
 #[derive(Debug)]
 pub enum Error {
     XMLParse(resvg::usvg::roxmltree::Error),
@@ -11,18 +11,21 @@ pub enum Error {
     Encoding(String),
 }
 
-/// Scales the final image, preserving aspect-ratio
+/// Image dimensions used for scaling while preserving the aspect ratio.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub enum FitTo {
-    /// Maximum width in pixels, scaling height as necessary
+    /// Width in pixels, scaling the height proportionally.
     MaxWidth(u32),
-    /// Maximum hight in pixels, scaling width as necessary
+    /// Height in pixels, scaling the width proportionally.
     MaxHeight(u32),
-    /// Miximum height and width in pixels, scaling as necessary
+    /// Fit within the given width and height in pixels.
     MaxSize { width: u32, height: u32 },
 }
 
 impl FitTo {
+    /// Choose a width, height, or bounding box from the supplied dimensions.
+    ///
+    /// If both are `None`, use the default 1024 by 1024 bounding box.
     #[must_use]
     pub fn from_size(width: Option<u32>, height: Option<u32>) -> Self {
         match (width, height) {
@@ -71,7 +74,7 @@ static USVG_OPTS: std::sync::LazyLock<resvg::usvg::Options> = std::sync::LazyLoc
     opts
 });
 
-/// Render the given svg-source to an image in png-format.
+/// Render SVG source to PNG bytes, scaled according to `fit_to`.
 ///
 /// ```rust
 /// use railroad::*;

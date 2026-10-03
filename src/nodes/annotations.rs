@@ -19,10 +19,7 @@ enum Direction {
     Behind,
 }
 
-/// A checkpoint connected to a detached, centered [`LabeledBox`].
-///
-/// The label and body are entirely caller-supplied: this node imposes no grammar
-/// semantics.
+/// A checkpoint on the path connected to a centered [`LabeledBox`] below it.
 ///
 /// ```rust
 /// use railroad::*;
@@ -33,7 +30,7 @@ enum Direction {
 /// assert!(Diagram::new(node).to_string().contains("Only at top level"));
 /// ```
 ///
-/// Negative lookahead is one possible recipe:
+/// For example, a negative lookahead assertion:
 ///
 /// ```rust
 /// use railroad::*;
@@ -54,13 +51,13 @@ pub struct Annotation<N, L> {
 }
 
 impl<N, L> Annotation<N, L> {
-    /// Draw a plain `!` checkpoint with the supplied box beneath it.
+    /// Create a `!` checkpoint with the supplied box beneath it.
     #[must_use]
     pub fn new(inner: LabeledBox<N, L>) -> Self {
         Self::with_direction(inner, Direction::None)
     }
 
-    /// Draw `↝`, referring ahead in the local reading direction.
+    /// Create a checkpoint with `↝`, pointing ahead in the reading direction.
     ///
     /// In [`svg::HDir::RTL`], the marker is mirrored to `↜`.
     #[must_use]
@@ -68,7 +65,7 @@ impl<N, L> Annotation<N, L> {
         Self::with_direction(inner, Direction::Ahead)
     }
 
-    /// Draw `↜`, referring behind, opposite to the local reading direction.
+    /// Create a checkpoint with `↜`, pointing opposite to the reading direction.
     ///
     /// In [`svg::HDir::RTL`], the marker is mirrored to `↝`. The box's own
     /// sequence still reads in the local reading direction; its children are not reversed.
@@ -87,12 +84,12 @@ impl<N, L> Annotation<N, L> {
         }
     }
 
-    /// Return the supplied box, including any custom label and attributes.
+    /// Return the wrapped box.
     pub fn into_inner(self) -> LabeledBox<N, L> {
         self.inner
     }
 
-    /// Access an attribute on the outer SVG group.
+    /// Return the entry for `key` in the outer `<g>` element's attributes.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
