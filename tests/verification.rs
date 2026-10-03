@@ -82,6 +82,16 @@ macro_rules! lnk {
 }
 
 verify!(simple_nonterm, dia!(nonterm!("Foobar")));
+verify!(
+    continuation_markers,
+    raw_dia!(seq!(
+        railroad::ContinuationStart,
+        nonterm!("expr"),
+        railroad::Continuation,
+        nonterm!("tail"),
+        railroad::ContinuationEnd
+    ))
+);
 verify!(escape_nonterm, dia!(nonterm!("Foo<bar>")));
 verify!(simple_term, dia!(term!("Foobar")));
 verify!(escape_term, dia!(term!("Foo<bar>")));

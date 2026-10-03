@@ -482,6 +482,48 @@ let node = Sequence::<Box<dyn Node>>::new(vec![
 
 </details>
 
+### Show a fragment — `ContinuationStart` and `ContinuationEnd`
+
+Three dots mark omitted portions before and after the fragment.
+
+![Three dots mark omitted portions before and after the fragment.](examples/vocabulary/continuation-start-end.svg)
+
+<details>
+<summary>Rust</summary>
+
+```rust
+use railroad::*;
+
+let node = Sequence::<Box<dyn Node>>::new(vec![
+    Box::new(ContinuationStart),
+    Box::new(NonTerminal::new("expr".to_owned())),
+    Box::new(ContinuationEnd),
+]);
+```
+
+</details>
+
+### Omit a section — `Continuation`
+
+An ellipsis joins the displayed parts of a diagram around a section that is not shown here.
+
+![An ellipsis joins the displayed parts of a diagram around a section that is not shown here.](examples/vocabulary/continuation.svg)
+
+<details>
+<summary>Rust</summary>
+
+```rust
+use railroad::*;
+
+let node = Sequence::<Box<dyn Node>>::new(vec![
+    Box::new(Terminal::new("BEGIN".to_owned())),
+    Box::new(Continuation),
+    Box::new(Terminal::new("END".to_owned())),
+]);
+```
+
+</details>
+
 ### Draw nothing — `Empty`
 
 Use `Empty` where a node is required but no input is consumed. Here it fills the inner node of the labeled first alternative.

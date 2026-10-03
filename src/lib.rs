@@ -506,6 +506,9 @@ trait RenderBackend {
     /// Append a path with a CSS class, separating annotations from traversable rails.
     fn push_path_with_class(&mut self, path: svg::PathData, class: &str) -> fmt::Result;
 
+    /// Append a circle with a basic SVG fill-opacity presentation attribute.
+    fn push_circle(&mut self, cx: i64, cy: i64, radius: f64, opacity: &str) -> fmt::Result;
+
     /// Append an axis-aligned rectangle to the current output.
     fn push_rect(&mut self, x: i64, y: i64, width: i64, height: i64) -> fmt::Result;
 
@@ -600,6 +603,17 @@ impl RenderBackend for ElementBackend {
         Ok(())
     }
 
+    fn push_circle(&mut self, cx: i64, cy: i64, radius: f64, opacity: &str) -> fmt::Result {
+        self.children.push(
+            svg::Element::new("circle")
+                .set("cx", &cx)
+                .set("cy", &cy)
+                .set("r", &radius)
+                .set("fill-opacity", opacity),
+        );
+        Ok(())
+    }
+
     fn push_rect(&mut self, x: i64, y: i64, width: i64, height: i64) -> fmt::Result {
         self.children.push(
             svg::Element::new("rect")
@@ -675,6 +689,15 @@ impl RenderBackend for RendererBackend<'_, '_> {
 
     fn push_path(&mut self, path: svg::PathData) -> fmt::Result {
         self.out.path(&path)
+    }
+
+    fn push_circle(&mut self, cx: i64, cy: i64, radius: f64, opacity: &str) -> fmt::Result {
+        let mut tag = self.out.start_element("circle")?;
+        tag.attr("cx", cx)?;
+        tag.attr("cy", cy)?;
+        tag.attr("r", radius)?;
+        tag.attr("fill-opacity", opacity)?;
+        tag.finish_empty()
     }
 
     fn push_rect(&mut self, x: i64, y: i64, width: i64, height: i64) -> fmt::Result {
@@ -1303,6 +1326,178 @@ impl Node for Start {
                 .horizontal(20),
         )
     }
+}
+
+/// A three-dot ellipsis indicating that a diagram continues before its left edge.
+#[derive(Debug, Clone, Default)]
+pub struct ContinuationStart;
+
+impl Node for ContinuationStart {
+    fn entry_height(&self) -> i64 {
+        5
+    }
+    fn height(&self) -> i64 {
+        10
+    }
+    fn width(&self) -> i64 {
+        30
+    }
+    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
+        draw_class_group_with_geometry(
+            "continuation-start",
+            "ContinuationStart",
+            x,
+            y,
+            &self.compute_geometry(),
+            |backend| emit_continuation(backend, x, y, h_dir, true),
+        )
+    }
+    fn render_with_geometry(
+        &self,
+        out: &mut svg::Renderer<'_>,
+        x: i64,
+        y: i64,
+        h_dir: HDir,
+        geo: &NodeGeometry,
+    ) -> fmt::Result {
+        render_class_group_with_geometry(
+            out,
+            "continuation-start",
+            "ContinuationStart",
+            x,
+            y,
+            geo,
+            |backend| emit_continuation(backend, x, y, h_dir, true),
+        )
+    }
+}
+
+/// A three-dot ellipsis indicating that a diagram continues beyond its right edge.
+#[derive(Debug, Clone, Default)]
+pub struct ContinuationEnd;
+
+impl Node for ContinuationEnd {
+    fn entry_height(&self) -> i64 {
+        5
+    }
+    fn height(&self) -> i64 {
+        10
+    }
+    fn width(&self) -> i64 {
+        30
+    }
+    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
+        draw_class_group_with_geometry(
+            "continuation-end",
+            "ContinuationEnd",
+            x,
+            y,
+            &self.compute_geometry(),
+            |backend| emit_continuation(backend, x, y, h_dir, false),
+        )
+    }
+    fn render_with_geometry(
+        &self,
+        out: &mut svg::Renderer<'_>,
+        x: i64,
+        y: i64,
+        h_dir: HDir,
+        geo: &NodeGeometry,
+    ) -> fmt::Result {
+        render_class_group_with_geometry(
+            out,
+            "continuation-end",
+            "ContinuationEnd",
+            x,
+            y,
+            geo,
+            |backend| emit_continuation(backend, x, y, h_dir, false),
+        )
+    }
+}
+
+/// A three-dot ellipsis marking a portion of a diagram that is not shown here.
+///
+/// This marks an omission in the displayed diagram; it does not specify what
+/// the omitted portion of the grammar accepts.
+#[derive(Debug, Clone, Default)]
+pub struct Continuation;
+
+impl Node for Continuation {
+    fn entry_height(&self) -> i64 {
+        5
+    }
+    fn height(&self) -> i64 {
+        10
+    }
+    fn width(&self) -> i64 {
+        38
+    }
+    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
+        draw_class_group_with_geometry(
+            "continuation",
+            "Continuation",
+            x,
+            y,
+            &self.compute_geometry(),
+            |backend| emit_interior_continuation(backend, x, y, h_dir),
+        )
+    }
+    fn render_with_geometry(
+        &self,
+        out: &mut svg::Renderer<'_>,
+        x: i64,
+        y: i64,
+        h_dir: HDir,
+        geo: &NodeGeometry,
+    ) -> fmt::Result {
+        render_class_group_with_geometry(
+            out,
+            "continuation",
+            "Continuation",
+            x,
+            y,
+            geo,
+            |backend| emit_interior_continuation(backend, x, y, h_dir),
+        )
+    }
+}
+
+fn emit_interior_continuation<B: RenderBackend>(
+    backend: &mut B,
+    x: i64,
+    y: i64,
+    h_dir: HDir,
+) -> fmt::Result {
+    for offset in [11, 19, 27] {
+        backend.push_circle(x + offset, y + 5, 2.5, "0.5")?;
+    }
+    backend.push_path(
+        svg::PathData::new(h_dir)
+            .move_to(x, y + 5)
+            .horizontal(6)
+            .move_to(x + 32, y + 5)
+            .horizontal(6),
+    )
+}
+
+fn emit_continuation<B: RenderBackend>(
+    backend: &mut B,
+    x: i64,
+    y: i64,
+    h_dir: HDir,
+    is_start: bool,
+) -> fmt::Result {
+    // Only their positions are mirrored; both markers have identical dot geometry.
+    for (offset, opacity) in [(3, "0.25"), (11, "0.6"), (19, "1")] {
+        let cx = x + if is_start { offset } else { 30 - offset };
+        backend.push_circle(cx, y + 5, 2.5, opacity)?;
+    }
+    backend.push_path(
+        svg::PathData::new(h_dir)
+            .move_to(x + if is_start { 24 } else { 0 }, y + 5)
+            .horizontal(6),
+    )
 }
 
 /// A rectangle drawn with the given dimensions, used for visual debugging

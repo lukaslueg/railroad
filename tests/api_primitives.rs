@@ -1,6 +1,6 @@
 use railroad::{
-    Debug, Diagram, Empty, End, Node, NodeCollection, NodeGeometry, SimpleEnd, SimpleStart, Start,
-    Stylesheet, svg,
+    Continuation, ContinuationEnd, ContinuationStart, Debug, Diagram, Empty, End, Node,
+    NodeCollection, NodeGeometry, SimpleEnd, SimpleStart, Start, Stylesheet, svg,
 };
 
 use crate::common::boxed;
@@ -136,6 +136,9 @@ fn built_in_primitives_render_distinct_markup() {
         boxed(SimpleEnd),
         boxed(End),
         boxed(Empty),
+        boxed(ContinuationStart),
+        boxed(Continuation),
+        boxed(ContinuationEnd),
     ]))
     .to_string();
 

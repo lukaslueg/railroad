@@ -16,6 +16,13 @@ stroke: black;
 fill: none;
 }
 
+svg.railroad .continuation circle,
+svg.railroad .continuation-start circle,
+svg.railroad .continuation-end circle {
+fill: black;
+stroke: none;
+}
+
 svg.railroad .debug {
 stroke-width: 1px;
 stroke: red;

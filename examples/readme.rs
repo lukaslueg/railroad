@@ -340,6 +340,28 @@ fn vocabulary() -> Vocabulary {
             Box::new(SimpleEnd),
         ]), // end-snippet
     );
+    guide.bare_entry(
+        "continuation-start-end",
+        "Show a fragment — `ContinuationStart` and `ContinuationEnd`",
+        "Three dots mark omitted portions before and after the fragment.",
+        // snippet: continuation-start-end
+        Sequence::<Box<dyn Node>>::new(vec![
+            Box::new(ContinuationStart),
+            Box::new(NonTerminal::new("expr".to_owned())),
+            Box::new(ContinuationEnd),
+        ]), // end-snippet
+    );
+    guide.entry(
+        "continuation",
+        "Omit a section — `Continuation`",
+        "An ellipsis joins the displayed parts of a diagram around a section that is not shown here.",
+        // snippet: continuation
+        Sequence::<Box<dyn Node>>::new(vec![
+            Box::new(Terminal::new("BEGIN".to_owned())),
+            Box::new(Continuation),
+            Box::new(Terminal::new("END".to_owned())),
+        ]), // end-snippet
+    );
     guide.entry(
         "empty",
         "Draw nothing — `Empty`",

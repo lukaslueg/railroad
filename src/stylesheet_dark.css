@@ -16,6 +16,13 @@ stroke: hsl(200, 10%, 60%);
 fill: none;
 }
 
+svg.railroad .continuation circle,
+svg.railroad .continuation-start circle,
+svg.railroad .continuation-end circle {
+fill: hsl(200, 10%, 60%);
+stroke: none;
+}
+
 svg.railroad .debug {
 stroke-width: 1px;
 stroke: red;
