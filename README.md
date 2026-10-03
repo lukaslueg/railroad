@@ -379,6 +379,88 @@ let node = HorizontalGrid::new(vec![
 
 </details>
 
+### Align horizontally - `Alignment`
+
+Align elements without resizing them.
+
+![Align elements without resizing them.](examples/vocabulary/aligned-rule-labels.svg)
+
+<details>
+<summary>Rust</summary>
+
+```rust
+use railroad::*;
+
+let node = {
+    let labels = ["expr", "statement", "item"]
+        .map(|text| Comment::new(text.to_owned()));
+    let column_width = labels.iter().map(Node::width).max().unwrap_or(0);
+    let rows = labels.into_iter().map(|label| {
+        HorizontalGrid::<Box<dyn Node>>::new(vec![
+            Box::new(Alignment::new(
+                label,
+                column_width,
+                0,
+                HorizontalAlignment::Start,
+                VerticalAlignment::Top,
+                false,
+            )),
+            Box::new(Sequence::<Box<dyn Node>>::new(vec![
+                Box::new(SimpleStart),
+                Box::new(NonTerminal::new("body".to_owned())),
+                Box::new(SimpleEnd),
+            ])),
+        ])
+    });
+    rows.collect::<VerticalGrid<_>>()
+};
+```
+
+</details>
+
+### Align vertically - `Alignment`
+
+Place a choice at the top, center, or bottom of equal-height boxes. The choice keeps its natural size, and its connecting rail moves with it.
+
+![Place a choice at the top, center, or bottom of equal-height boxes. The choice keeps its natural size, and its connecting rail moves with it.](examples/vocabulary/alignment.svg)
+
+<details>
+<summary>Rust</summary>
+
+```rust
+use railroad::*;
+
+let node = {
+    let placements = [
+        (VerticalAlignment::Top, "Top"),
+        (VerticalAlignment::Centered, "Centered"),
+        (VerticalAlignment::Bottom, "Bottom"),
+    ];
+    placements.into_iter().map(|(vertical, label)| {
+        Sequence::<Box<dyn Node>>::new(vec![
+            Box::new(SimpleStart),
+            Box::new(LabeledBox::new(
+                Alignment::new(
+                    Choice::new(vec![
+                        Terminal::new("yes".to_owned()),
+                        Terminal::new("no".to_owned()),
+                    ]),
+                    120,
+                    110,
+                    HorizontalAlignment::Centered,
+                    vertical,
+                    true,
+                ),
+                Comment::new(label.to_owned()),
+            )),
+            Box::new(SimpleEnd),
+        ])
+    }).collect::<HorizontalGrid<_>>()
+};
+```
+
+</details>
+
 ---
 
 **Explaining and navigating**

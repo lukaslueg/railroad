@@ -82,7 +82,10 @@ pub use crate::nodes::annotations::Annotation;
 pub use crate::nodes::containers::{Choice, MultiChoice, Sequence, Stack};
 pub use crate::nodes::grids::{HorizontalGrid, VerticalGrid};
 pub use crate::nodes::text::{Comment, NonTerminal, Terminal};
-pub use crate::nodes::wrappers::{LabeledBox, Link, LinkTarget, Optional, Repeat};
+pub use crate::nodes::wrappers::{
+    Alignment, HorizontalAlignment, LabeledBox, Link, LinkTarget, Optional, Repeat,
+    VerticalAlignment,
+};
 
 #[cfg(feature = "resvg")]
 pub mod render;
@@ -200,7 +203,7 @@ pub const DEFAULT_CSS: &str = Stylesheet::Light.stylesheet();
 ///
 /// The `children` vec mirrors the order in which each composite node iterates its
 /// children during drawing, so `children[i]` corresponds to the i-th child drawn.
-/// For single-child wrappers (`Optional`, `Link`) `children[0]` is the inner node.
+/// For single-child wrappers (`Alignment`, `Optional`, `Link`) `children[0]` is the inner node.
 /// For `Annotation`, `children[0]` is the detached `LabeledBox` (with its own child geometry).
 /// For `LabeledBox`, `children[0]` is the inner node and `children[1]` is the label.
 /// For `Repeat`, `children[0]` is the inner node and `children[1]` is the repeat node.
@@ -1915,7 +1918,16 @@ mod tests_without_visual_debug {
             calls: &calls,
         };
 
-        // Wrap in two levels of Sequence: [[leaf]]
+        let leaf = Alignment::new(
+            leaf,
+            100,
+            60,
+            HorizontalAlignment::Start,
+            VerticalAlignment::Centered,
+            true,
+        );
+
+        // Wrap the aligned leaf in two levels of Sequence.
         let inner_seq: Sequence<Box<dyn Node>> =
             Sequence::new(vec![Box::new(leaf) as Box<dyn Node>]);
         let outer_seq: Sequence<Box<dyn Node>> =
@@ -1923,6 +1935,16 @@ mod tests_without_visual_debug {
 
         let geo = outer_seq.compute_geometry();
         let _ = outer_seq.draw_with_geometry(0, 0, HDir::LTR, &geo);
+        let mut streamed = String::new();
+        outer_seq
+            .render_with_geometry(
+                &mut svg::Renderer::new(&mut streamed),
+                0,
+                0,
+                HDir::LTR,
+                &geo,
+            )
+            .unwrap();
 
         // entry_height + height + width = 3 calls, regardless of nesting depth
         assert_eq!(
@@ -1974,13 +1996,30 @@ mod tests_with_visual_debug {
             calls: &calls,
         };
 
-        let mut nested: Box<dyn Node> = Box::new(leaf);
+        let mut nested: Box<dyn Node> = Box::new(Alignment::new(
+            leaf,
+            100,
+            60,
+            HorizontalAlignment::Start,
+            VerticalAlignment::Centered,
+            true,
+        ));
         for _ in 0..8 {
             nested = Box::new(Sequence::new(vec![nested]));
         }
 
         let geo = nested.compute_geometry();
         let _ = nested.draw_with_geometry(0, 0, HDir::LTR, &geo);
+        let mut streamed = String::new();
+        nested
+            .render_with_geometry(
+                &mut svg::Renderer::new(&mut streamed),
+                0,
+                0,
+                HDir::LTR,
+                &geo,
+            )
+            .unwrap();
 
         assert_eq!(
             calls.get(),

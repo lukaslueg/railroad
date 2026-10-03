@@ -3,6 +3,7 @@ use std::io::Write;
 
 fn main() {
     use railroad::*;
+    use railroad::{HorizontalAlignment as HAlign, VerticalAlignment as VAlign};
 
     let mut f = fs::File::create("examples/visuals.html").unwrap();
 
@@ -133,6 +134,183 @@ fn main() {
     // Very simple, varying size
     dia!(dbg!());
     dia!(dbg!(20, 50, 50));
+    hr!();
+
+    // Comments name their placement inside the surrounding frame.
+    f.write_all(
+        b"<h2>Alignment</h2><p>Each comment names its placement within its surrounding box.</p><p>Choice: start/top, centered, and end/bottom in equal-size frames.</p>",
+    ).unwrap();
+    dia!(choice!(
+        lbox!(Alignment::new(
+            cmt!("Start / Top"),
+            240,
+            61,
+            HAlign::Start,
+            VAlign::Top,
+            true
+        )),
+        lbox!(Alignment::new(
+            cmt!("Centered / Centered"),
+            240,
+            61,
+            HAlign::Centered,
+            VAlign::Centered,
+            true
+        )),
+        lbox!(Alignment::new(
+            cmt!("End / Bottom"),
+            240,
+            61,
+            HAlign::End,
+            VAlign::Bottom,
+            true
+        ))
+    ));
+
+    // The nested frame distinguishes the inner and outer alignment rectangles.
+    f.write_all(b"<p>Stack: aligned text, nested frames, and a comment exceeding both minima.</p>")
+        .unwrap();
+    dia!(stck!(
+        lbox!(Alignment::new(
+            cmt!("Start / Top"),
+            320,
+            71,
+            HAlign::Start,
+            VAlign::Top,
+            true
+        )),
+        lbox!(
+            Alignment::new(
+                lbox!(Alignment::new(
+                    cmt!("Inner: End / Bottom"),
+                    220,
+                    41,
+                    HAlign::End,
+                    VAlign::Bottom,
+                    true
+                )),
+                320,
+                91,
+                HAlign::Start,
+                VAlign::Centered,
+                true
+            ),
+            cmt!("Outer: Start / Centered")
+        ),
+        lbox!(Alignment::new(
+            cmt!("Natural size exceeds 60 x 10"),
+            60,
+            10,
+            HAlign::End,
+            VAlign::Bottom,
+            true
+        ))
+    ));
+
+    // The return path reads right-to-left, so start is on the physical right.
+    f.write_all(b"<p>Repeat: start and end follow the RTL return path.</p>")
+        .unwrap();
+    dia!(rpt!(
+        cmt!("Forward path"),
+        choice!(
+            lbox!(Alignment::new(
+                cmt!("Start = right / Top"),
+                240,
+                61,
+                HAlign::Start,
+                VAlign::Top,
+                true
+            )),
+            lbox!(Alignment::new(
+                cmt!("End = left / Bottom"),
+                240,
+                61,
+                HAlign::End,
+                VAlign::Bottom,
+                true
+            ))
+        )
+    ));
+
+    // These minima leave each comment at its natural size.
+    f.write_all(
+        b"<p>Stack: zero, negative, and undersized minima leave no extra alignment space.</p>",
+    )
+    .unwrap();
+    dia!(stck!(
+        lbox!(Alignment::new(
+            cmt!("0 x 0: natural size"),
+            0,
+            0,
+            HAlign::Centered,
+            VAlign::Bottom,
+            true
+        )),
+        lbox!(Alignment::new(
+            cmt!("-40 x -10: natural size"),
+            -40,
+            -10,
+            HAlign::End,
+            VAlign::Centered,
+            true
+        )),
+        lbox!(Alignment::new(
+            cmt!("20 x 10: natural size"),
+            20,
+            10,
+            HAlign::Start,
+            VAlign::Top,
+            true
+        ))
+    ));
+
+    // Empty children still need an external label to explain their rail position.
+    f.write_all(b"<p>Choice: captions identify the rails of empty children.</p>")
+        .unwrap();
+    dia!(choice!(
+        lbox!(
+            Alignment::new(Empty, 240, 0, HAlign::Start, VAlign::Top, true),
+            cmt!("Empty: no minimum height")
+        ),
+        lbox!(
+            Alignment::new(Empty, 240, 31, HAlign::Centered, VAlign::Centered, true),
+            cmt!("Empty: centered rail")
+        ),
+        lbox!(
+            Alignment::new(Empty, 240, 31, HAlign::End, VAlign::Bottom, true),
+            cmt!("Empty: bottom rail")
+        )
+    ));
+
+    // No rail is drawn across the alignment padding inside these frames.
+    f.write_all(b"<p>Independent comments: blank alignment padding inside equal-size frames.</p>")
+        .unwrap();
+    raw_dia!(horiz!(
+        lbox!(Alignment::new(
+            cmt!("Start / Top"),
+            180,
+            61,
+            HAlign::Start,
+            VAlign::Top,
+            false
+        )),
+        lbox!(Alignment::new(
+            cmt!("Centered"),
+            180,
+            61,
+            HAlign::Centered,
+            VAlign::Centered,
+            false
+        )),
+        lbox!(Alignment::new(
+            cmt!("End / Bottom"),
+            180,
+            61,
+            HAlign::End,
+            VAlign::Bottom,
+            false
+        ))
+    ));
     hr!();
 
     // Long text, difficult width

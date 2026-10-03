@@ -9,6 +9,204 @@ use crate::{
     render_group_with_geometry, svg,
 };
 
+/// Horizontal placement inside an [`Alignment`], relative to the reading direction.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum HorizontalAlignment {
+    /// Place the child on the left in LTR and on the right in RTL.
+    #[default]
+    Start,
+    /// Center the child, leaving any odd spare pixel on the physical right.
+    Centered,
+    /// Place the child on the right in LTR and on the left in RTL.
+    End,
+}
+
+/// Vertical placement inside an [`Alignment`].
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum VerticalAlignment {
+    /// Place the child at the top.
+    #[default]
+    Top,
+    /// Center the child, leaving any odd spare pixel at the bottom.
+    Centered,
+    /// Place the child at the bottom.
+    Bottom,
+}
+
+/// Reserve a minimum rectangle and align a child inside it without resizing it.
+///
+/// Zero, negative values, and values below the child's natural size do not enlarge
+/// that dimension. Horizontal start/end placement follows [`svg::HDir`]. Vertical
+/// placement shifts the child's entry height by the same amount as its drawing;
+/// aligning bounding boxes does not necessarily align their connecting paths.
+///
+/// # Example
+/// ```rust
+/// use railroad::*;
+///
+/// let labels = ["expr", "statement", "item"].map(|s| Comment::new(s.to_owned()));
+/// let column_width = labels.iter().map(Node::width).max().unwrap_or(0);
+/// let rows = labels.into_iter().map(|label| {
+///     HorizontalGrid::<Box<dyn Node>>::new(vec![
+///         Box::new(Alignment::new(
+///             label, column_width, 0,
+///             HorizontalAlignment::Start, VerticalAlignment::Top, false,
+///         )),
+///         Box::new(NonTerminal::new("body".to_owned())),
+///     ])
+/// });
+/// let diagram = Diagram::new(rows.collect::<VerticalGrid<_>>());
+/// assert!(diagram.to_string().contains("statement"));
+/// ```
+#[derive(Debug, Clone)]
+pub struct Alignment<N> {
+    inner: N,
+    min_width: i64,
+    min_height: i64,
+    horizontal: HorizontalAlignment,
+    vertical: VerticalAlignment,
+    connect_rails: bool,
+    attributes: HashMap<String, String>,
+}
+
+impl<N> Alignment<N> {
+    /// Wrap `inner` with the given minimum size, placement, and rail policy.
+    ///
+    /// Zero and negative values have no effect on the child's natural size.
+    ///
+    /// `connect_rails` bridges horizontal space on both sides at the child's
+    /// translated entry height. Pass `false` to leave that space blank.
+    #[must_use]
+    pub fn new(
+        inner: N,
+        min_width: i64,
+        min_height: i64,
+        horizontal: HorizontalAlignment,
+        vertical: VerticalAlignment,
+        connect_rails: bool,
+    ) -> Self {
+        Self {
+            inner,
+            min_width,
+            min_height,
+            horizontal,
+            vertical,
+            connect_rails,
+            attributes: HashMap::from([("class".to_owned(), "alignment".to_owned())]),
+        }
+    }
+
+    /// Return the wrapped child.
+    #[must_use]
+    pub fn into_inner(self) -> N {
+        self.inner
+    }
+
+    /// Access an attribute on the main SVG-element that will be drawn.
+    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
+        self.attributes.entry(key)
+    }
+
+    fn vertical_offset(&self, extra_height: i64) -> i64 {
+        match self.vertical {
+            VerticalAlignment::Top => 0,
+            VerticalAlignment::Centered => extra_height / 2,
+            VerticalAlignment::Bottom => extra_height,
+        }
+    }
+
+    fn emit<B: RenderBackend>(
+        &self,
+        backend: &mut B,
+        x: i64,
+        y: i64,
+        h_dir: HDir,
+        geo: &NodeGeometry,
+    ) -> fmt::Result
+    where
+        N: Node,
+    {
+        let child_geo = &geo.children[0];
+        let extra_width = geo.width - child_geo.width;
+        let dx = match (self.horizontal, h_dir) {
+            (HorizontalAlignment::Start, HDir::LTR) | (HorizontalAlignment::End, HDir::RTL) => 0,
+            (HorizontalAlignment::Centered, _) => extra_width / 2,
+            (HorizontalAlignment::End, HDir::LTR) | (HorizontalAlignment::Start, HDir::RTL) => {
+                extra_width
+            }
+        };
+        let dy = geo.entry_height - child_geo.entry_height;
+        if self.connect_rails {
+            for (offset, length) in [(0, dx), (dx + child_geo.width, extra_width - dx)] {
+                if length > 0 {
+                    let path = svg::PathData::new(h_dir).move_to(x + offset, y + geo.entry_height);
+                    // A zero-height child still supports a rail, but not arrowheads
+                    // that protrude above or below the advertised rectangle.
+                    let path = if geo.entry_height >= svg::PathData::PADDING
+                        && geo.height_below_entry() >= svg::PathData::PADDING
+                    {
+                        path.horizontal(length)
+                    } else {
+                        path.line_rel(length, 0)
+                    };
+                    backend.push_path(path)?;
+                }
+            }
+        }
+        backend.push_child(&self.inner, x + dx, y + dy, h_dir, child_geo)
+    }
+}
+
+impl<N: Node> Node for Alignment<N> {
+    fn entry_height(&self) -> i64 {
+        let child_height = self.inner.height();
+        let height = child_height.max(self.min_height);
+        self.inner.entry_height() + self.vertical_offset(height - child_height)
+    }
+
+    fn height(&self) -> i64 {
+        self.inner.height().max(self.min_height)
+    }
+
+    fn width(&self) -> i64 {
+        self.inner.width().max(self.min_width)
+    }
+
+    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
+        self.draw_with_geometry(x, y, h_dir, &self.compute_geometry())
+    }
+
+    fn compute_geometry(&self) -> NodeGeometry {
+        let child_geo = self.inner.compute_geometry();
+        let height = child_geo.height.max(self.min_height);
+        NodeGeometry {
+            entry_height: child_geo.entry_height + self.vertical_offset(height - child_geo.height),
+            height,
+            width: child_geo.width.max(self.min_width),
+            children: vec![child_geo],
+        }
+    }
+
+    fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, geo: &NodeGeometry) -> svg::Element {
+        draw_group_with_geometry(&self.attributes, "Alignment", x, y, geo, |backend| {
+            self.emit(backend, x, y, h_dir, geo)
+        })
+    }
+
+    fn render_with_geometry(
+        &self,
+        out: &mut svg::Renderer<'_>,
+        x: i64,
+        y: i64,
+        h_dir: HDir,
+        geo: &NodeGeometry,
+    ) -> fmt::Result {
+        render_group_with_geometry(out, &self.attributes, "Alignment", x, y, geo, |backend| {
+            self.emit(backend, x, y, h_dir, geo)
+        })
+    }
+}
+
 /// Possible targets for `Link`.
 ///
 /// Maps to the HTML `target` attribute on the generated `<a>` element.

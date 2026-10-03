@@ -108,6 +108,17 @@ verify!(
 );
 verify!(simple_stack, dia!(stck!(term!("Foo"), term!("Bar"))));
 verify!(simple_comment, dia!(cmt!("Foobar")));
+verify!(
+    simple_alignment,
+    dia!(railroad::Alignment::new(
+        term!("Foobar"),
+        150,
+        60,
+        railroad::HorizontalAlignment::End,
+        railroad::VerticalAlignment::Bottom,
+        true,
+    ))
+);
 verify!(escape_comment, dia!(cmt!("Foo<bar>")));
 verify!(simple_vertical, dia!(vert!(term!("Foo"), term!("Bar"))));
 verify!(simple_horizontal, dia!(horiz!(term!("Foo"), term!("Bar"))));

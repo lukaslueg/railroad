@@ -1,8 +1,8 @@
 mod common;
 
 use railroad::{
-    Annotation, Comment, Diagram, LabeledBox, Link, LinkTarget, Node, Optional, Repeat, Terminal,
-    svg,
+    Alignment, Annotation, Comment, Diagram, Empty, HorizontalAlignment, LabeledBox, Link,
+    LinkTarget, Node, Optional, Repeat, Terminal, VerticalAlignment, svg,
 };
 
 #[test]
@@ -23,6 +23,69 @@ fn link_wraps_inner_node_and_emits_target_attributes() {
     assert!(svg.contains("class=\"link\""));
     assert!(svg.contains("data-kind=\"external\""));
     assert!(svg.contains("docs"));
+}
+
+#[test]
+fn alignment_positions_child() {
+    let node = Alignment::new(
+        Terminal::new("x".to_owned()),
+        48,
+        42,
+        HorizontalAlignment::Start,
+        VerticalAlignment::Bottom,
+        false,
+    );
+    let geo = node.compute_geometry();
+    assert_eq!((geo.width, geo.height, geo.entry_height), (48, 42, 31));
+    assert!(
+        node.draw(0, 0, svg::HDir::LTR)
+            .to_string()
+            .contains("x=\"0\" y=\"20\"")
+    );
+    assert!(
+        node.draw(0, 0, svg::HDir::RTL)
+            .to_string()
+            .contains("x=\"20\" y=\"20\"")
+    );
+}
+
+#[test]
+fn alignment_does_not_shrink_child() {
+    let child = Terminal::new("x".to_owned());
+    for minimum in [-1, 0, 1] {
+        let node = Alignment::new(
+            &child,
+            minimum,
+            minimum,
+            HorizontalAlignment::End,
+            VerticalAlignment::Bottom,
+            false,
+        );
+        assert_eq!(node.width(), child.width());
+        assert_eq!(node.height(), child.height());
+        assert_eq!(node.entry_height(), child.entry_height());
+    }
+}
+
+#[test]
+fn alignment_can_connect_padding() {
+    for connect_rails in [false, true] {
+        let node = Alignment::new(
+            Empty,
+            100,
+            0,
+            HorizontalAlignment::Start,
+            VerticalAlignment::Top,
+            connect_rails,
+        );
+        let mut rendered = String::new();
+        node.render(&mut svg::Renderer::new(&mut rendered), 0, 0, svg::HDir::LTR)
+            .unwrap();
+        assert_eq!(
+            rendered.contains("<path d=\" M 0 0 l 100 0\"/>"),
+            connect_rails
+        );
+    }
 }
 
 #[test]
