@@ -40,7 +40,7 @@ impl Vocabulary {
     }
 
     fn bare_entry(&mut self, slug: &str, title: &str, description: &str, node: impl Node) {
-        let mut diagram = Diagram::new_with_stylesheet(node, &Stylesheet::LightRendersafe);
+        let mut diagram = Diagram::new_with_stylesheet(node, &Stylesheet::Light);
         // Explicit dimensions preserve a consistent scale when images are embedded.
         let width = diagram.width().to_string();
         let height = diagram.height().to_string();
@@ -193,12 +193,14 @@ fn vocabulary() -> Vocabulary {
         // snippet: negative-lookahead
         Sequence::<Box<dyn Node>>::new(vec![
             Box::new(Annotation::new_ahead(LabeledBox::new(
-                Choice::<Box<dyn Node>>::new(vec![
-                    Box::new(Terminal::new("\"".to_owned())),
-                    Box::new(Terminal::new("\\".to_owned())),
-                    Box::new(NonTerminal::new("CR".to_owned())),
-                ]),
-                Comment::new("Must not match ahead; consumes no input".to_owned()),
+                Sequence::<Box<dyn Node>>::new(vec![
+                    Box::new(Choice::<Box<dyn Node>>::new(vec![
+                        Box::new(Terminal::new("\"".to_owned())),
+                        Box::new(Terminal::new("\\".to_owned())),
+                        Box::new(NonTerminal::new("CR".to_owned())),
+                    ])),
+                    Box::new(Continuation)]),
+                Comment::new("Must not match ahead".to_owned()),
             ))),
             Box::new(NonTerminal::new("ASCII".to_owned())),
         ]), // end-snippet
@@ -206,16 +208,16 @@ fn vocabulary() -> Vocabulary {
     guide.entry(
         "negative-lookbehind",
         "Negative lookbehind recipe — `Annotation::new_behind`",
-        "Match a decimal integer, then reject exactly `0`. `START_OF_INPUT` denotes a zero-width input boundary, so `10` and `20` still pass the lookbehind. The assertion itself consumes no input.",
+        "Match a decimal integer, then reject exactly `0`.",
         // snippet: negative-lookbehind
         Sequence::<Box<dyn Node>>::new(vec![
             Box::new(NonTerminal::new("DECIMAL".to_owned())),
             Box::new(Annotation::new_behind(LabeledBox::new(
                 Sequence::<Box<dyn Node>>::new(vec![
-                    Box::new(NonTerminal::new("START_OF_INPUT".to_owned())),
+                    Box::new(Continuation),
                     Box::new(Terminal::new("0".to_owned())),
                 ]),
-                Comment::new("Must not match behind; consumes no input".to_owned()),
+                Comment::new("Must not match behind".to_owned()),
             ))),
         ]), // end-snippet
     );

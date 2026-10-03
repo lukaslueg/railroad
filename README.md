@@ -229,12 +229,14 @@ use railroad::*;
 
 let node = Sequence::<Box<dyn Node>>::new(vec![
     Box::new(Annotation::new_ahead(LabeledBox::new(
-        Choice::<Box<dyn Node>>::new(vec![
-            Box::new(Terminal::new("\"".to_owned())),
-            Box::new(Terminal::new("\\".to_owned())),
-            Box::new(NonTerminal::new("CR".to_owned())),
-        ]),
-        Comment::new("Must not match ahead; consumes no input".to_owned()),
+        Sequence::<Box<dyn Node>>::new(vec![
+            Box::new(Choice::<Box<dyn Node>>::new(vec![
+                Box::new(Terminal::new("\"".to_owned())),
+                Box::new(Terminal::new("\\".to_owned())),
+                Box::new(NonTerminal::new("CR".to_owned())),
+            ])),
+            Box::new(Continuation)]),
+        Comment::new("Must not match ahead".to_owned()),
     ))),
     Box::new(NonTerminal::new("ASCII".to_owned())),
 ]);
@@ -244,9 +246,9 @@ let node = Sequence::<Box<dyn Node>>::new(vec![
 
 ### Negative lookbehind recipe — `Annotation::new_behind`
 
-Match a decimal integer, then reject exactly `0`. `START_OF_INPUT` denotes a zero-width input boundary, so `10` and `20` still pass the lookbehind. The assertion itself consumes no input.
+Match a decimal integer, then reject exactly `0`.
 
-![Match a decimal integer, then reject exactly `0`. `START_OF_INPUT` denotes a zero-width input boundary, so `10` and `20` still pass the lookbehind. The assertion itself consumes no input.](examples/vocabulary/negative-lookbehind.svg)
+![Match a decimal integer, then reject exactly `0`.](examples/vocabulary/negative-lookbehind.svg)
 
 <details>
 <summary>Rust</summary>
@@ -258,10 +260,10 @@ let node = Sequence::<Box<dyn Node>>::new(vec![
     Box::new(NonTerminal::new("DECIMAL".to_owned())),
     Box::new(Annotation::new_behind(LabeledBox::new(
         Sequence::<Box<dyn Node>>::new(vec![
-            Box::new(NonTerminal::new("START_OF_INPUT".to_owned())),
+            Box::new(Continuation),
             Box::new(Terminal::new("0".to_owned())),
         ]),
-        Comment::new("Must not match behind; consumes no input".to_owned()),
+        Comment::new("Must not match behind".to_owned()),
     ))),
 ]);
 ```
