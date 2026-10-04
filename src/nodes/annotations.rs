@@ -4,8 +4,8 @@ use std::{
 };
 
 use crate::{
-    HDir, LabeledBox, Node, NodeGeometry, RenderBackend, draw_group_with_geometry,
-    render_group_with_geometry, svg,
+    HDir, Node, NodeGeometry, RenderBackend, draw_group_with_geometry, render_group_with_geometry,
+    svg,
 };
 
 const HALF_WIDTH: i64 = 24;
@@ -19,7 +19,9 @@ enum Direction {
     Behind,
 }
 
-/// A checkpoint on the path connected to a centered [`LabeledBox`] below it.
+/// A checkpoint on the path connected to a centered node below it.
+///
+/// The child can be any [`Node`]. Use a [`crate::LabeledBox`] to add a border and label.
 ///
 /// ```rust
 /// use railroad::*;
@@ -44,16 +46,16 @@ enum Direction {
 /// assert!(Diagram::new(node).to_string().contains("Must not match ahead"));
 /// ```
 #[derive(Debug, Clone)]
-pub struct Annotation<N, L> {
-    inner: LabeledBox<N, L>,
+pub struct Annotation<N> {
+    inner: N,
     direction: Direction,
     attributes: HashMap<String, String>,
 }
 
-impl<N, L> Annotation<N, L> {
-    /// Create a `!` checkpoint with the supplied box beneath it.
+impl<N> Annotation<N> {
+    /// Create a `!` checkpoint with the supplied node beneath it.
     #[must_use]
-    pub fn new(inner: LabeledBox<N, L>) -> Self {
+    pub fn new(inner: N) -> Self {
         Self::with_direction(inner, Direction::None)
     }
 
@@ -61,20 +63,20 @@ impl<N, L> Annotation<N, L> {
     ///
     /// In [`svg::HDir::RTL`], the marker is mirrored to `↜`.
     #[must_use]
-    pub fn new_ahead(inner: LabeledBox<N, L>) -> Self {
+    pub fn new_ahead(inner: N) -> Self {
         Self::with_direction(inner, Direction::Ahead)
     }
 
     /// Create a checkpoint with `↜`, pointing opposite to the reading direction.
     ///
-    /// In [`svg::HDir::RTL`], the marker is mirrored to `↝`. The box's own
+    /// In [`svg::HDir::RTL`], the marker is mirrored to `↝`. The child's own
     /// sequence still reads in the local reading direction; its children are not reversed.
     #[must_use]
-    pub fn new_behind(inner: LabeledBox<N, L>) -> Self {
+    pub fn new_behind(inner: N) -> Self {
         Self::with_direction(inner, Direction::Behind)
     }
 
-    fn with_direction(inner: LabeledBox<N, L>, direction: Direction) -> Self {
+    fn with_direction(inner: N, direction: Direction) -> Self {
         let mut attributes = HashMap::new();
         attributes.insert("class".to_owned(), "annotation".to_owned());
         Self {
@@ -84,8 +86,8 @@ impl<N, L> Annotation<N, L> {
         }
     }
 
-    /// Return the wrapped box.
-    pub fn into_inner(self) -> LabeledBox<N, L> {
+    /// Return the wrapped node.
+    pub fn into_inner(self) -> N {
         self.inner
     }
 
@@ -104,7 +106,6 @@ impl<N, L> Annotation<N, L> {
     ) -> fmt::Result
     where
         N: Node,
-        L: Node,
     {
         let cx = x + geo.width / 2;
         let rail_y = y + geo.entry_height;
@@ -166,7 +167,7 @@ impl<N, L> Annotation<N, L> {
     }
 }
 
-impl<N: Node, L: Node> Node for Annotation<N, L> {
+impl<N: Node> Node for Annotation<N> {
     fn entry_height(&self) -> i64 {
         HALF_HEIGHT
     }

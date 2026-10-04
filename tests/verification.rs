@@ -157,14 +157,14 @@ verify!(
     })
 );
 
-fn ahead<N>(inner: N) -> railroad::Annotation<N, railroad::Comment> {
+fn ahead<N>(inner: N) -> railroad::Annotation<railroad::LabeledBox<N, railroad::Comment>> {
     railroad::Annotation::new_ahead(railroad::LabeledBox::new(
         inner,
         railroad::Comment::new("Must not match ahead; consumes no input".to_owned()),
     ))
 }
 
-fn behind<N>(inner: N) -> railroad::Annotation<N, railroad::Comment> {
+fn behind<N>(inner: N) -> railroad::Annotation<railroad::LabeledBox<N, railroad::Comment>> {
     railroad::Annotation::new_behind(railroad::LabeledBox::new(
         inner,
         railroad::Comment::new("Must not match behind; consumes no input".to_owned()),

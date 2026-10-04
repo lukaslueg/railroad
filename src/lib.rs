@@ -196,7 +196,7 @@ pub const DEFAULT_CSS: &str = Stylesheet::Light.stylesheet();
 /// - For [`Alignment`], [`Optional`], and [`Link`], `children[0]` is the inner node.
 /// - For [`Scale`] with a nonzero factor, `children[0]` is the inner node's unscaled
 ///   geometry. A zero factor produces no child geometry.
-/// - For [`Annotation`], `children[0]` is the detached [`LabeledBox`].
+/// - For [`Annotation`], `children[0]` is the detached inner node.
 /// - For [`LabeledBox`], `children[0]` is the inner node and `children[1]` is the label.
 /// - For [`Repeat`], `children[0]` is the inner node and `children[1]` is the return-path node.
 /// - Leaf nodes have no child geometry.

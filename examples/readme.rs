@@ -174,7 +174,7 @@ fn vocabulary() -> Vocabulary {
 
     guide.section(
         "Annotations and assertions",
-        "`Annotation` connects a checkpoint to a labeled box. Its marker can point ahead or behind in the reading direction. The examples below use these markers to illustrate lookahead and lookbehind assertions.",
+        "`Annotation` connects a checkpoint to any node below the path. Use `LabeledBox` to add a border and label. Its marker can point ahead or behind in the reading direction. The examples below use these markers to illustrate lookahead and lookbehind assertions.",
     );
     guide.entry(
         "annotation",

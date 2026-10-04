@@ -6,9 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [unreleased]
 
-- Add `Alignment` with minimum dimensions, horizontal alignment relative to the reading direction, vertical alignment, and optional connecting rails
+- Add `Scale` for uniform scaling
+- Add `Alignment`
 - Fix disconnected `MultiChoice` exit routes and insufficient bend clearance for short alternatives
-- Add `Annotation` for checkpoints connected to a labeled box, with optional ahead/behind indicators
+- Add `Annotation` for checkpoints connected to any node, with optional ahead/behind indicators
 - Add `ContinuationStart` and `ContinuationEnd` ellipsis markers for diagrams that continue beyond their displayed boundaries
 - Add `Continuation` to mark omitted sections within a diagram
 
