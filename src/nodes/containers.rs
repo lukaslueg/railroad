@@ -369,6 +369,14 @@ impl<N> Stack<N> {
             0
         }
     }
+
+    fn right_padding(&self) -> i64 {
+        if self.children.len() > 1 {
+            self.right_padding
+        } else {
+            0
+        }
+    }
 }
 
 impl<N> Default for Stack<N> {
@@ -409,7 +417,7 @@ where
         let left_p = self.left_padding();
         let max_width = self.children.iter().map(Node::width).max().unwrap_or(0);
         let last_width = self.children.last().map(Node::width).unwrap_or(0);
-        let base_width = left_p + max_width + self.right_padding;
+        let base_width = left_p + max_width + self.right_padding();
         let needs_extra = self
             .children
             .iter()
@@ -494,7 +502,7 @@ where
         let left_p = self.left_padding();
         let max_width = children.iter().map(|g| g.width).max().unwrap_or(0);
         let last_width = children.last().map(|g| g.width).unwrap_or(0);
-        let base_width = left_p + max_width + self.right_padding;
+        let base_width = left_p + max_width + self.right_padding();
         let needs_extra = children
             .iter()
             .rev()

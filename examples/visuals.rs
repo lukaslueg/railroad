@@ -594,6 +594,8 @@ fn main() {
     hr!();
 
     // Stacks
+    // A singleton stack used to leave a gap before the end marker.
+    dia!(stck!(term!("one")));
     dia!(stck!());
     dia!(stck!(Empty));
     dia!(stck!(Empty, Empty));

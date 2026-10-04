@@ -59,6 +59,16 @@ fn stack_and_choice_render_container_markup_and_children() {
 }
 
 #[test]
+fn stack_without_return_path_has_no_padding() {
+    let terminal = Terminal::new("one".to_owned());
+    let width = terminal.width();
+    for (stack, expected) in [(Stack::new(vec![]), 0), (Stack::new(vec![terminal]), width)] {
+        assert_eq!(stack.width(), expected);
+        assert_eq!(stack.compute_geometry().width, expected);
+    }
+}
+
+#[test]
 fn stack_inter_child_connector_stops_at_narrow_child_entry() {
     let svg = Diagram::new(demo_stack_with_narrow_child()).to_string();
 
