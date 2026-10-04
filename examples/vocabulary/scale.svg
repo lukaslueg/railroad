@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="railroad" viewBox="0 0 214 88" height="88" width="214">
+<style type="text/css">
+svg.railroad {
+background-color: hsl(30, 20%, 95%);
+background-size: 15px 15px;
+background-image: linear-gradient(to right, rgba(30, 30, 30, .05) 1px, transparent 1px),
+		  linear-gradient(to bottom, rgba(30, 30, 30, .05) 1px, transparent 1px);
+}
+
+svg.railroad rect.railroad_canvas {
+stroke-width: 0px;
+fill: none;
+}
+
+svg.railroad path {
+stroke-width: 3px;
+stroke: black;
+fill: none;
+}
+
+svg.railroad .continuation circle,
+svg.railroad .continuation-start circle,
+svg.railroad .continuation-end circle {
+fill: black;
+stroke: none;
+}
+
+svg.railroad .debug {
+stroke-width: 1px;
+stroke: red;
+}
+
+svg.railroad text {
+font: 14px monospace;
+text-anchor: middle;
+}
+
+svg.railroad .nonterminal text {
+font-weight: bold;
+}
+
+svg.railroad text.comment {
+font: italic 12px monospace;
+}
+
+svg.railroad rect,
+svg.railroad .annotation > path.annotation-marker {
+stroke-width: 3px;
+stroke: black;
+fill:hsl(-290, 70%, 90%);
+}
+
+svg.railroad g.labeledbox > rect,
+svg.railroad .annotation > path.annotation-connector {
+stroke-width: 1px;
+stroke: grey;
+stroke-dasharray: 5px;
+fill: rgb(90, 90, 150);
+fill-opacity: .1;
+}
+
+svg.railroad .annotation > path.annotation-connector {
+fill: none;
+}
+
+/* Annotation markers use wavy arrows distinct from rail traversal arrows. */
+
+svg.railroad .annotation > path.annotation-direction {
+stroke-width: 2px;
+stroke: black;
+}
+</style>
+<title>
+Enlarge the inline comment and shrink the return-path comment, keeping their connecting rails aligned.</title>
+<rect width="100%" height="100%" class="railroad_canvas"/>
+<g class="sequence">
+<path d=" M 10 31 a 5 5 0 0 1 5 -5 a 5 5 0 0 1 5 5 a 5 5 0 0 1 -5 5 a 5 5 0 0 1 -5 -5 m 10 0 h 5"/>
+<g class="repeat">
+<path d=" M 35 31 h 5 h 12 m 110 0 h 12 h 5 m -17 0 a 12 12 0 0 1 12 12 v 10 a 12 12 0 0 1 -12 12 m -65 0 h -45 a 12 12 0 0 1 -12 -12 v -10 a 12 12 0 0 1 12 -12"/>
+<g class="scale">
+<g transform="translate(97 57) matrix(0.7471264367816092 0 0 0.7471264367816092 0 0.5287356321839081)">
+<text class="comment" x="43" y="15">
+Scaled down</text>
+</g>
+</g>
+<g class="scale">
+<g transform="translate(52 15) matrix(1.5068493150684932 0 0 1.5068493150684932 0 0.9315068493150684)">
+<text class="comment" x="36" y="15">
+Scaled up</text>
+</g>
+</g>
+</g>
+<path d=" M 189 31 h 5 a 5 5 0 0 1 5 -5 a 5 5 0 0 1 5 5 a 5 5 0 0 1 -5 5 a 5 5 0 0 1 -5 -5"/>
+<path d=" M 25 31 h 10"/>
+<path d=" M 179 31 h 10"/>
+</g>
+</svg>
+

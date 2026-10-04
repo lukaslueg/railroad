@@ -458,6 +458,26 @@ let node = {
 
 </details>
 
+### Scale a subtree — `Scale`
+
+Enlarge the inline comment and shrink the return-path comment, keeping their connecting rails aligned.
+
+![Enlarge the inline comment and shrink the return-path comment, keeping their connecting rails aligned.](examples/vocabulary/scale.svg)
+
+<details>
+<summary>Rust</summary>
+
+```rust
+use railroad::*;
+
+let node = Repeat::new(
+    Scale::new(Comment::new("Scaled up".to_owned()), 1.5),
+    Scale::new(Comment::new("Scaled down".to_owned()), 0.75),
+);
+```
+
+</details>
+
 ---
 
 **Labels, links, and markers**

@@ -136,6 +136,91 @@ fn main() {
     dia!(dbg!(20, 50, 50));
     hr!();
 
+    f.write_all(b"<section id=\"scale\"><h2>Scale corner cases</h2>")
+        .unwrap();
+    // Half-unit target width and entry height: the precise version deliberately
+    // leaves its connections fractional; the adjusted version aligns them.
+    f.write_all(b"<p>Width 45, entry height 11, scale 0.5: adjusted above, precise below.</p>")
+        .unwrap();
+    dia!(choice!(
+        Scale::new(dbg!(11, 22, 45), 0.5),
+        Scale::new_precise(dbg!(11, 22, 45), 0.5)
+    ));
+
+    // Tiny positive widths clamp to one unit; zero-width children keep their
+    // requested factor, including when they still have a nonzero height.
+    f.write_all(b"<p>Tiny target width, empty child, and zero width with nonzero height.</p>")
+        .unwrap();
+    raw_dia!(horiz!(
+        lbox!(
+            Scale::new(dbg!(11, 22, 45), 0.0001),
+            cmt!("Clamped to one unit")
+        ),
+        lbox!(Scale::new(Empty, 0.5), cmt!("Empty stays empty")),
+        lbox!(
+            Scale::new(dbg!(11, 22, 0), 0.5),
+            cmt!("Zero width, nonzero height")
+        )
+    ));
+
+    // This ratio must not gain a whole unit of padding from floating-point noise.
+    f.write_all(b"<p>Width and entry height 25, scale 0.28: both become exactly 7.</p>")
+        .unwrap();
+    dia!(Scale::new(dbg!(25, 50, 25), 0.28));
+
+    // Nested scales and repetitions exercise both reading directions and an
+    // empty alternative without changing the children's natural geometry.
+    f.write_all(b"<p>Nested scales on a return path, with an empty forward alternative.</p>")
+        .unwrap();
+    dia!(rpt!(
+        Scale::new(choice!(term!("item"), Empty), 1.25),
+        Scale::new(
+            Scale::new(rpt!(term!("separator"), cmt!("repeat separator")), 0.65),
+            1.25
+        )
+    ));
+
+    // Scale a complete grammar while also scaling individual tokens, optional
+    // groups, labels, and the separator on a right-to-left repetition rail.
+    f.write_all(b"<p>ALTER TABLE stack: scale the whole subtree by 0.85, with child factors ranging from 0.6 to 1.8.</p>")
+        .unwrap();
+    dia!(Scale::new(
+        stck!(
+            seq!(
+                Scale::new(term!("ALTER"), 1.7),
+                Scale::new(term!("TABLE"), 0.85),
+                Scale::new(opt!(seq!(nonterm!("schema-name"), term!("."))), 0.6),
+                Scale::new(nonterm!("table-name"), 1.2)
+            ),
+            lbox!(
+                choice!(
+                    seq!(
+                        Scale::new(term!("RENAME"), 0.9),
+                        Scale::new(term!("TO"), 1.4),
+                        Scale::new(nonterm!("new-table-name"), 0.75)
+                    ),
+                    seq!(
+                        Scale::new(term!("ADD"), 1.15),
+                        Scale::new(opt!(term!("COLUMN")), 0.8),
+                        Scale::new(nonterm!("column-def"), 1.6)
+                    ),
+                    seq!(
+                        Scale::new(term!("DROP"), 0.85),
+                        Scale::new(opt!(seq!(term!("IF"), term!("EXISTS"))), 1.1),
+                        rpt!(
+                            Scale::new(nonterm!("column-name"), 0.9),
+                            Scale::new(term!(","), 1.8)
+                        )
+                    )
+                ),
+                Scale::new(cmt!("Choose an alteration"), 1.05)
+            )
+        ),
+        0.85
+    ));
+    f.write_all(b"</section>").unwrap();
+    hr!();
+
     // Comments name their placement inside the surrounding frame.
     f.write_all(
         b"<h2>Alignment</h2><p>Each comment names its placement within its surrounding box.</p><p>Choice: start/top, centered, and end/bottom in equal-size frames.</p>",

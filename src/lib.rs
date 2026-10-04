@@ -76,7 +76,7 @@ pub use crate::nodes::containers::{Choice, MultiChoice, Sequence, Stack};
 pub use crate::nodes::grids::{HorizontalGrid, VerticalGrid};
 pub use crate::nodes::text::{Comment, NonTerminal, Terminal};
 pub use crate::nodes::wrappers::{
-    Alignment, HorizontalAlignment, LabeledBox, Link, LinkTarget, Optional, Repeat,
+    Alignment, HorizontalAlignment, LabeledBox, Link, LinkTarget, Optional, Repeat, Scale,
     VerticalAlignment,
 };
 
@@ -194,6 +194,8 @@ pub const DEFAULT_CSS: &str = Stylesheet::Light.stylesheet();
 /// defined by each node implementation and may differ from its draw order:
 ///
 /// - For [`Alignment`], [`Optional`], and [`Link`], `children[0]` is the inner node.
+/// - For [`Scale`] with a nonzero factor, `children[0]` is the inner node's unscaled
+///   geometry. A zero factor produces no child geometry.
 /// - For [`Annotation`], `children[0]` is the detached [`LabeledBox`].
 /// - For [`LabeledBox`], `children[0]` is the inner node and `children[1]` is the label.
 /// - For [`Repeat`], `children[0]` is the inner node and `children[1]` is the return-path node.
@@ -244,6 +246,7 @@ impl NodeGeometry {
 ///
 /// - `width()` and `height()` define the full bounding box,
 /// - `entry_height()` defines the vertical offset of the connecting path,
+/// - `width()`, `height()` and `entry_height()` must be non-negative,
 /// - drawing at `(x, y)` must stay between `x` and `x + width()`, and between
 ///   `y` and `y + height()`, including the boundaries,
 /// - any path that enters or leaves the node must be aligned with
@@ -475,6 +478,15 @@ fn write_debug_overlay(
 /// so the crate can keep `draw_with_geometry()` and `render_with_geometry()`
 /// behavior in sync without duplicating traversal logic.
 trait RenderBackend {
+    /// Draw a child at its local origin inside a transformed group.
+    fn push_transformed_child<N: Node + ?Sized>(
+        &mut self,
+        child: &N,
+        transform: &str,
+        h_dir: HDir,
+        geo: &NodeGeometry,
+    ) -> fmt::Result;
+
     /// Append a path element to the current output.
     fn push_path(&mut self, path: svg::PathData) -> fmt::Result;
 
@@ -557,6 +569,21 @@ impl ElementBackend {
 }
 
 impl RenderBackend for ElementBackend {
+    fn push_transformed_child<N: Node + ?Sized>(
+        &mut self,
+        child: &N,
+        transform: &str,
+        h_dir: HDir,
+        geo: &NodeGeometry,
+    ) -> fmt::Result {
+        self.children.push(
+            svg::Element::new("g")
+                .set("transform", transform)
+                .add(child.draw_with_geometry(0, 0, h_dir, geo)),
+        );
+        Ok(())
+    }
+
     fn push_text_with_class(&mut self, x: i64, y: i64, text: &str, class: &str) -> fmt::Result {
         self.children.push(
             svg::Element::new("text")
@@ -650,6 +677,20 @@ struct RendererBackend<'a, 'b> {
 }
 
 impl RenderBackend for RendererBackend<'_, '_> {
+    fn push_transformed_child<N: Node + ?Sized>(
+        &mut self,
+        child: &N,
+        transform: &str,
+        h_dir: HDir,
+        geo: &NodeGeometry,
+    ) -> fmt::Result {
+        let mut group = self.out.start_element("g")?;
+        group.attr("transform", transform)?;
+        group.finish()?;
+        child.render_with_geometry(self.out, 0, 0, h_dir, geo)?;
+        self.out.end_element("g")
+    }
+
     fn push_text_with_class(&mut self, x: i64, y: i64, text: &str, class: &str) -> fmt::Result {
         self.out.text_element("text", text, |tag| {
             tag.attr("class", class)?;

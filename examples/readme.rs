@@ -351,6 +351,16 @@ fn vocabulary() -> Vocabulary {
         }, // end-snippet
     );
 
+    guide.entry(
+        "scale",
+        "Scale a subtree — `Scale`",
+        "Enlarge the inline comment and shrink the return-path comment, keeping their connecting rails aligned.",
+        // snippet: scale
+        Repeat::new(
+            Scale::new(Comment::new("Scaled up".to_owned()), 1.5),
+            Scale::new(Comment::new("Scaled down".to_owned()), 0.75),
+        ), // end-snippet
+    );
     guide.section(
         "Labels, links, and markers",
         "Add explanatory text, hyperlinks, and start, end, or omission markers.",

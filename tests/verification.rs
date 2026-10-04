@@ -94,6 +94,20 @@ verify!(
 );
 verify!(escape_nonterm, dia!(nonterm!("Foo<bar>")));
 verify!(simple_term, dia!(term!("Foobar")));
+verify!(
+    scaled_choice,
+    dia!(railroad::Scale::new(
+        choice!(term!("Foo"), term!("Bar")),
+        0.65
+    ))
+);
+verify!(
+    precise_scale,
+    raw_dia!(railroad::Scale::new_precise(
+        railroad::Annotation::new(railroad::LabeledBox::without_label(term!("Foo"))),
+        0.65
+    ))
+);
 verify!(escape_term, dia!(term!("Foo<bar>")));
 verify!(simple_choice, dia!(choice!(term!("Foo"), term!("Bar"))));
 verify!(

@@ -9,6 +9,303 @@ use crate::{
     render_group_with_geometry, svg,
 };
 
+/// Uniformly scale a child.
+///
+/// A zero factor collapses the node to zero dimensions and draws nothing.
+///
+/// For positive factors, [`Scale::new`] rounds the target width to the nearest
+/// positive integer (ties upward), then derives a uniform scale from that width.
+/// It shifts the child down by less than one unit so its rail matches the
+/// rounded-up entry height.
+///
+/// [`Scale::new_precise`] uses the requested scale and adds no corrective
+/// translation. Its integer geometry is rounded upward, so rendered rails may
+/// differ from reported connecting coordinates by less than one unit.
+#[derive(Debug, Clone)]
+pub struct Scale<N> {
+    inner: N,
+    requested_scale: f64,
+    precise: bool,
+    attributes: HashMap<String, String>,
+}
+
+struct ScaleLayout {
+    width: i64,
+    height: i64,
+    entry_height: i64,
+    factor: f64,
+    vertical_offset: f64,
+}
+
+impl<N> Scale<N> {
+    /// Scale `inner`, adjusting the factor and position to align connecting rails.
+    ///
+    /// # Panics
+    /// Panics if `scale` is negative or not finite. Geometry computation
+    /// panics if the scaled dimensions cannot be represented by [`NodeGeometry`].
+    ///
+    /// # Example
+    /// ```rust
+    /// use railroad::{Node, Scale, SimpleStart};
+    ///
+    /// let unscaled = SimpleStart;
+    /// assert_eq!(unscaled.width(), 15);
+    /// assert_eq!(unscaled.entry_height(), 5);
+    /// assert_eq!(unscaled.height(), 10);
+    ///
+    /// let scaled = Scale::new(unscaled, 0.75);
+    /// // The target width is 11.25, rounded to 11; the effective factor is 11 / 15.
+    /// assert_eq!(scaled.width(), 11);
+    /// assert_eq!(scaled.requested_scale(), 0.75);
+    /// assert_eq!(scaled.effective_scale(), 11.0 / 15.0);
+    /// // Each half is now 11 / 3 units tall, rounded upward to 4.
+    /// // The child shifts down by 1 / 3 units, with another 1 / 3 below it.
+    /// assert_eq!(scaled.entry_height(), 4);
+    /// assert_eq!(scaled.height(), 8);
+    /// ```
+    #[must_use]
+    pub fn new(inner: N, scale: f64) -> Self {
+        let mut node = Self::new_precise(inner, scale);
+        node.precise = false;
+        node
+    }
+
+    /// Scale `inner` by exactly the requested factor, without corrective translation.
+    ///
+    /// Width, height, and entry height are rounded upward for integer layout.
+    ///
+    /// # Panics
+    /// Panics if `scale` is negative or not finite. Geometry computation
+    /// panics if the scaled dimensions cannot be represented by [`NodeGeometry`].
+    ///
+    /// # Example
+    /// ```rust
+    /// use railroad::{Node, Scale, Terminal};
+    ///
+    /// let node = Scale::new_precise(Terminal::new("abc".to_owned()), 0.5);
+    /// assert_eq!(node.requested_scale(), node.effective_scale());
+    /// assert_eq!(node.height(), 11);
+    /// assert_eq!(node.entry_height(), 6); // The rendered rail remains at 5.5.
+    /// ```
+    #[must_use]
+    pub fn new_precise(inner: N, scale: f64) -> Self {
+        assert!(
+            scale.is_finite() && scale >= 0.0,
+            "scale must be finite and nonnegative"
+        );
+        Self {
+            inner,
+            requested_scale: scale,
+            precise: true,
+            attributes: HashMap::from([("class".to_owned(), "scale".to_owned())]),
+        }
+    }
+
+    /// Return the factor supplied to the constructor.
+    #[must_use]
+    pub fn requested_scale(&self) -> f64 {
+        self.requested_scale
+    }
+
+    /// Return the wrapped child.
+    #[must_use]
+    pub fn into_inner(self) -> N {
+        self.inner
+    }
+
+    /// Return the entry for `key` in the outer `<g>` element's attributes.
+    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
+        self.attributes.entry(key)
+    }
+
+    fn integer_dimension(value: f64) -> i64 {
+        assert!(
+            value.is_finite() && value >= 0.0 && value < i64::MAX as f64,
+            "scaled dimension exceeds NodeGeometry's range"
+        );
+        value as i64
+    }
+
+    fn scaled_width(&self, width: i64) -> i64 {
+        let target = self.requested_scale * width as f64;
+        if self.precise {
+            Self::integer_dimension(target.ceil())
+        } else if width == 0 {
+            0
+        } else {
+            Self::integer_dimension(target.round().max(1.0))
+        }
+    }
+
+    fn factor_for_width(&self, natural_width: i64, scaled_width: i64) -> f64 {
+        if self.precise || natural_width == 0 {
+            self.requested_scale
+        } else {
+            scaled_width as f64 / natural_width as f64
+        }
+    }
+
+    // Use integer ratios for adjusted geometry so an integral result such as
+    // (7 / 25) * 25 cannot accidentally ceil to 8 due to floating-point noise.
+    fn adjusted_dimension(value: i64, width: i64, natural_width: i64) -> (i64, f64) {
+        let numerator = value as u128 * width as u128;
+        let denominator = natural_width as u128;
+        let remainder = numerator % denominator;
+        let dimension = i64::try_from(numerator.div_ceil(denominator))
+            .expect("scaled dimension exceeds NodeGeometry's range");
+        let padding = if remainder == 0 {
+            0.0
+        } else {
+            (denominator - remainder) as f64 / denominator as f64
+        };
+        (dimension, padding)
+    }
+
+    fn layout(&self, child: &NodeGeometry) -> ScaleLayout {
+        assert!(
+            child.width >= 0 && child.entry_height >= 0 && child.height >= child.entry_height,
+            "Scale requires nonnegative child dimensions and an entry within its height"
+        );
+        let width = self.scaled_width(child.width);
+        let factor = self.factor_for_width(child.width, width);
+        let (entry_height, vertical_offset, height) = if self.precise {
+            (
+                Self::integer_dimension((factor * child.entry_height as f64).ceil()),
+                0.0,
+                Self::integer_dimension((factor * child.height as f64).ceil()),
+            )
+        } else {
+            let (entry, padding, below) = if child.width == 0 {
+                let scaled_entry = factor * child.entry_height as f64;
+                let entry = Self::integer_dimension(scaled_entry.ceil());
+                (
+                    entry,
+                    entry as f64 - scaled_entry,
+                    Self::integer_dimension((factor * child.height_below_entry() as f64).ceil()),
+                )
+            } else {
+                let (entry, padding) =
+                    Self::adjusted_dimension(child.entry_height, width, child.width);
+                let (below, _) =
+                    Self::adjusted_dimension(child.height_below_entry(), width, child.width);
+                (entry, padding, below)
+            };
+            (
+                entry,
+                padding,
+                entry
+                    .checked_add(below)
+                    .expect("scaled height exceeds NodeGeometry's range"),
+            )
+        };
+        ScaleLayout {
+            width,
+            height,
+            entry_height,
+            factor,
+            vertical_offset,
+        }
+    }
+
+    fn emit<B: RenderBackend>(
+        &self,
+        backend: &mut B,
+        x: i64,
+        y: i64,
+        h_dir: HDir,
+        geo: &NodeGeometry,
+    ) -> fmt::Result
+    where
+        N: Node,
+    {
+        let child = &geo.children[0];
+        let layout = self.layout(child);
+        // Keep the integer placement separate from the fractional correction.
+        let transform = format!(
+            "translate({x} {y}) matrix({s} 0 0 {s} 0 {dy})",
+            s = layout.factor,
+            dy = layout.vertical_offset,
+        );
+        backend.push_transformed_child(&self.inner, &transform, h_dir, child)
+    }
+}
+
+impl<N: Node> Scale<N> {
+    /// Return the uniform factor used to render the child.
+    ///
+    /// For a zero factor, [`Scale::new_precise`], and zero-width children, this is
+    /// the requested factor. Otherwise it is derived from the nearest positive
+    /// integral width.
+    #[must_use]
+    pub fn effective_scale(&self) -> f64 {
+        if self.requested_scale == 0.0 {
+            return self.requested_scale;
+        }
+        let width = self.inner.width();
+        self.factor_for_width(width, self.scaled_width(width))
+    }
+}
+
+impl<N: Node> Node for Scale<N> {
+    fn entry_height(&self) -> i64 {
+        self.compute_geometry().entry_height
+    }
+
+    fn height(&self) -> i64 {
+        self.compute_geometry().height
+    }
+
+    fn width(&self) -> i64 {
+        if self.requested_scale == 0.0 {
+            return 0;
+        }
+        self.scaled_width(self.inner.width())
+    }
+
+    fn compute_geometry(&self) -> NodeGeometry {
+        if self.requested_scale == 0.0 {
+            return Empty.compute_geometry();
+        }
+        let child = self.inner.compute_geometry();
+        let layout = self.layout(&child);
+        NodeGeometry {
+            width: layout.width,
+            height: layout.height,
+            entry_height: layout.entry_height,
+            children: vec![child],
+        }
+    }
+
+    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
+        self.draw_with_geometry(x, y, h_dir, &self.compute_geometry())
+    }
+
+    fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, geo: &NodeGeometry) -> svg::Element {
+        if self.requested_scale == 0.0 {
+            return svg::Element::new("g");
+        }
+        draw_group_with_geometry(&self.attributes, "Scale", x, y, geo, |backend| {
+            self.emit(backend, x, y, h_dir, geo)
+        })
+    }
+
+    fn render_with_geometry(
+        &self,
+        out: &mut svg::Renderer<'_>,
+        x: i64,
+        y: i64,
+        h_dir: HDir,
+        geo: &NodeGeometry,
+    ) -> fmt::Result {
+        if self.requested_scale == 0.0 {
+            return Ok(());
+        }
+        render_group_with_geometry(out, &self.attributes, "Scale", x, y, geo, |backend| {
+            self.emit(backend, x, y, h_dir, geo)
+        })
+    }
+}
+
 /// Horizontal placement inside an [`Alignment`], relative to the reading direction.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum HorizontalAlignment {
