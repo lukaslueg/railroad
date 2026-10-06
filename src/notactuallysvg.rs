@@ -185,10 +185,12 @@ pub struct Renderer<'a> {
 /// A builder for an element's opening tag.
 ///
 /// Instances are created by [`Renderer::start_element`] and allow callers to
-/// append attributes before completing the tag with [`StartTag::finish`] or
-/// [`StartTag::finish_empty`].
+/// set buffered attributes before completing the tag with [`StartTag::finish`]
+/// or [`StartTag::finish_empty`]. Attributes retain their insertion order;
+/// setting an existing key replaces its value without moving it.
 pub struct StartTag<'a, 'b> {
     renderer: &'a mut Renderer<'b>,
+    attributes: Vec<(String, String)>,
 }
 
 struct EscapingWriter<'a> {
@@ -226,7 +228,10 @@ impl<'a> Renderer<'a> {
         validate_tag_name(name)?;
         self.out.write_char('<')?;
         self.out.write_str(name)?;
-        Ok(StartTag { renderer: self })
+        Ok(StartTag {
+            renderer: self,
+            attributes: Vec::new(),
+        })
     }
 
     /// Write a closing tag for `name`.
@@ -342,28 +347,29 @@ impl<'a> Renderer<'a> {
 }
 
 impl StartTag<'_, '_> {
-    /// Add a single attribute to the opening tag.
+    /// Set a buffered attribute, replacing any previous value for the same key.
+    /// Replacing a value preserves the attribute's original position.
     ///
-    /// Both key and value are minimally XML-escaped before being written.
+    /// Formatting errors are returned here. Both key and value are minimally
+    /// XML-escaped when the tag is finished, when writer errors are returned.
     pub fn attr(&mut self, key: impl fmt::Display, value: impl fmt::Display) -> fmt::Result {
-        self.renderer.out.write_char(' ')?;
+        let mut formatted_key = String::new();
+        let mut formatted_value = String::new();
+        write!(&mut formatted_key, "{key}")?;
+        write!(&mut formatted_value, "{value}")?;
+        if let Some((_, value)) = self
+            .attributes
+            .iter_mut()
+            .find(|(key, _)| *key == formatted_key)
         {
-            let mut escaping = EscapingWriter {
-                out: self.renderer.out,
-            };
-            write!(&mut escaping, "{key}")?;
+            *value = formatted_value;
+        } else {
+            self.attributes.push((formatted_key, formatted_value));
         }
-        self.renderer.out.write_str("=\"")?;
-        {
-            let mut escaping = EscapingWriter {
-                out: self.renderer.out,
-            };
-            write!(&mut escaping, "{value}")?;
-        }
-        self.renderer.out.write_char('"')
+        Ok(())
     }
 
-    /// Add all attributes from a map in deterministic key order.
+    /// Set attributes from a map in key order, replacing previous values for matching keys.
     pub fn attr_hashmap(&mut self, attrs: &HashMap<String, String>) -> fmt::Result {
         let mut attrs = attrs.iter().collect::<Vec<_>>();
         attrs.sort_by_key(|(k, _)| *k);
@@ -373,12 +379,24 @@ impl StartTag<'_, '_> {
         Ok(())
     }
 
-    /// Finish the opening tag as a non-empty element.
-    pub fn finish(self) -> fmt::Result {
+    fn write_attributes(&mut self) -> fmt::Result {
+        for (key, value) in &self.attributes {
+            self.renderer.out.write_char(' ')?;
+            write_escaped_minimal(self.renderer.out, key)?;
+            self.renderer.out.write_str("=\"")?;
+            write_escaped_minimal(self.renderer.out, value)?;
+            self.renderer.out.write_char('"')?;
+        }
+        Ok(())
+    }
+
+    /// Write buffered attributes in insertion order and finish as a non-empty element.
+    pub fn finish(mut self) -> fmt::Result {
+        self.write_attributes()?;
         self.renderer.out.write_str(">\n")
     }
 
-    /// Finish the opening tag as an empty element.
+    /// Write buffered attributes in insertion order and finish as an empty element.
     ///
     /// # Example
     /// ```rust
@@ -397,7 +415,8 @@ impl StartTag<'_, '_> {
     /// build(&mut out).unwrap();
     /// assert_eq!(out, "<rect width=\"100%\" height=\"100%\"/>\n");
     /// ```
-    pub fn finish_empty(self) -> fmt::Result {
+    pub fn finish_empty(mut self) -> fmt::Result {
+        self.write_attributes()?;
         self.renderer.out.write_str("/>\n")
     }
 }

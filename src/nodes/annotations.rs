@@ -77,12 +77,10 @@ impl<N> Annotation<N> {
     }
 
     fn with_direction(inner: N, direction: Direction) -> Self {
-        let mut attributes = HashMap::new();
-        attributes.insert("class".to_owned(), "annotation".to_owned());
         Self {
             inner,
             direction,
-            attributes,
+            attributes: HashMap::default(),
         }
     }
 
@@ -92,6 +90,8 @@ impl<N> Annotation<N> {
     }
 
     /// Return the entry for `key` in the outer `<g>` element's attributes.
+    ///
+    /// Attributes set during drawing, including `class`, take precedence over custom values.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
@@ -190,9 +190,15 @@ impl<N: Node> Node for Annotation<N> {
         self.draw_with_geometry(x, y, h_dir, &self.compute_geometry())
     }
     fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, geo: &NodeGeometry) -> svg::Element {
-        draw_group_with_geometry(&self.attributes, "Annotation", x, y, geo, |backend| {
-            self.emit(backend, x, y, h_dir, geo)
-        })
+        draw_group_with_geometry(
+            &self.attributes,
+            "annotation",
+            "Annotation",
+            x,
+            y,
+            geo,
+            |backend| self.emit(backend, x, y, h_dir, geo),
+        )
     }
     fn render_with_geometry(
         &self,
@@ -202,8 +208,15 @@ impl<N: Node> Node for Annotation<N> {
         h_dir: HDir,
         geo: &NodeGeometry,
     ) -> fmt::Result {
-        render_group_with_geometry(out, &self.attributes, "Annotation", x, y, geo, |backend| {
-            self.emit(backend, x, y, h_dir, geo)
-        })
+        render_group_with_geometry(
+            out,
+            &self.attributes,
+            "annotation",
+            "Annotation",
+            x,
+            y,
+            geo,
+            |backend| self.emit(backend, x, y, h_dir, geo),
+        )
     }
 }

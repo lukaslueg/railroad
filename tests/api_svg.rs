@@ -43,6 +43,30 @@ fn start_tag_attr_hashmap_writes_attributes_in_key_order() {
 }
 
 #[test]
+fn start_tag_replaces_attributes_and_escapes_final_values() {
+    for empty in [false, true] {
+        let mut out = String::new();
+        let mut renderer = svg::Renderer::new(&mut out);
+        let mut tag = renderer.start_element("g").unwrap();
+        tag.attr("b", "old").unwrap();
+        tag.attr("a", "kept").unwrap();
+        tag.attr("b", "<&\"'").unwrap();
+        if empty {
+            tag.finish_empty().unwrap();
+        } else {
+            tag.finish().unwrap();
+        }
+        assert_eq!(
+            out,
+            format!(
+                "<g b=\"&lt;&amp;&quot;&#x27;\" a=\"kept\"{}\n",
+                if empty { "/>" } else { ">" },
+            )
+        );
+    }
+}
+
+#[test]
 fn path_data_tracks_direction_and_arrowhead_shape() {
     let ltr = svg::PathData::new(svg::HDir::LTR)
         .move_to(0, 0)
@@ -65,7 +89,7 @@ fn path_data_tracks_direction_and_arrowhead_shape() {
 #[test]
 fn element_serializes_children_text_and_siblings() {
     let xml = svg::Element::new("g")
-        .set("id", "root")
+        .set::<str, str>("id", "root")
         .text("5 < 6")
         .add(svg::Element::new("path").set("data-kind", "child"))
         .append(svg::Element::new("desc").raw_text("trusted <raw>"))

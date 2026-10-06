@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="railroad" viewBox="0 0 170 60" height="60" width="170">
+<svg height="60" width="170" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="railroad" viewBox="0 0 170 60">
 <style type="text/css">
 svg.railroad {
 background-color: hsl(30, 20%, 95%);

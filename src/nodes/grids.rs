@@ -23,13 +23,10 @@ impl<N> VerticalGrid<N> {
     /// any path; use [`crate::Stack`] for connected vertical sequences.
     #[must_use]
     pub fn new(children: Vec<N>) -> Self {
-        let mut v = Self {
+        Self {
             children,
             ..Self::default()
-        };
-        v.attributes
-            .insert("class".to_owned(), "verticalgrid".to_owned());
-        v
+        }
     }
 
     /// Append a child and return `&mut self` for chaining.
@@ -45,6 +42,8 @@ impl<N> VerticalGrid<N> {
     }
 
     /// Return the entry for `key` in the outer `<g>` element's attributes.
+    ///
+    /// Attributes set during drawing, including `class`, take precedence over custom values.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
@@ -101,7 +100,9 @@ impl<N: Node> Node for VerticalGrid<N> {
     }
 
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> crate::svg::Element {
-        let mut g = crate::svg::Element::new("g").set_all(self.attributes.iter());
+        let mut g = crate::svg::Element::new("g")
+            .set_all(&self.attributes)
+            .set("class", "verticalgrid");
         let mut running_y = y;
         for child in &self.children {
             g.push(child.draw(x, running_y, h_dir));
@@ -132,9 +133,15 @@ impl<N: Node> Node for VerticalGrid<N> {
         h_dir: HDir,
         geo: &NodeGeometry,
     ) -> crate::svg::Element {
-        draw_group_with_geometry(&self.attributes, "VerticalGrid", x, y, geo, |backend| {
-            self.emit_with_geometry(backend, x, y, h_dir, geo)
-        })
+        draw_group_with_geometry(
+            &self.attributes,
+            "verticalgrid",
+            "VerticalGrid",
+            x,
+            y,
+            geo,
+            |backend| self.emit_with_geometry(backend, x, y, h_dir, geo),
+        )
     }
 
     fn render_with_geometry(
@@ -148,6 +155,7 @@ impl<N: Node> Node for VerticalGrid<N> {
         render_group_with_geometry(
             out,
             &self.attributes,
+            "verticalgrid",
             "VerticalGrid",
             x,
             y,
@@ -172,13 +180,10 @@ impl<N> HorizontalGrid<N> {
     /// any path; use [`crate::Sequence`] for connected horizontal sequences.
     #[must_use]
     pub fn new(children: Vec<N>) -> Self {
-        let mut h = Self {
+        Self {
             children,
             ..Self::default()
-        };
-        h.attributes
-            .insert("class".to_owned(), "horizontalgrid".to_owned());
-        h
+        }
     }
 
     /// Append a child and return `&mut self` for chaining.
@@ -194,6 +199,8 @@ impl<N> HorizontalGrid<N> {
     }
 
     /// Return the entry for `key` in the outer `<g>` element's attributes.
+    ///
+    /// Attributes set during drawing, including `class`, take precedence over custom values.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
@@ -253,7 +260,9 @@ where
     }
 
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> crate::svg::Element {
-        let mut g = crate::svg::Element::new("g").set_all(self.attributes.iter());
+        let mut g = crate::svg::Element::new("g")
+            .set_all(&self.attributes)
+            .set("class", "horizontalgrid");
         let mut running_x = x;
         for child in &self.children {
             g.push(child.draw(running_x, y, h_dir));
@@ -284,9 +293,15 @@ where
         h_dir: HDir,
         geo: &NodeGeometry,
     ) -> crate::svg::Element {
-        draw_group_with_geometry(&self.attributes, "HorizontalGrid", x, y, geo, |backend| {
-            self.emit_with_geometry(backend, x, y, h_dir, geo)
-        })
+        draw_group_with_geometry(
+            &self.attributes,
+            "horizontalgrid",
+            "HorizontalGrid",
+            x,
+            y,
+            geo,
+            |backend| self.emit_with_geometry(backend, x, y, h_dir, geo),
+        )
     }
 
     fn render_with_geometry(
@@ -300,6 +315,7 @@ where
         render_group_with_geometry(
             out,
             &self.attributes,
+            "horizontalgrid",
             "HorizontalGrid",
             x,
             y,

@@ -290,6 +290,8 @@ pub trait Node {
     /// `width()`, and `height()`, with the connecting path at `y + entry_height()`.
     ///
     /// The default [`Node::draw_with_geometry`] implementation calls this method.
+    /// Apply custom attributes before setting the node's own attributes, so the
+    /// node's values replace conflicting custom values.
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element;
 
     /// Compute dimensions for use by the geometry-aware drawing and rendering methods.
@@ -345,6 +347,8 @@ pub trait Node {
     /// The default implementation serializes the element returned by
     /// [`Node::draw_with_geometry`]. Override this to stream SVG directly, using
     /// `geo.children` when rendering child nodes.
+    /// Apply custom attributes first and the node's own attributes afterward,
+    /// matching [`Node::draw`]. Repeated keys replace previous values in both backends.
     fn render_with_geometry(
         &self,
         out: &mut svg::Renderer<'_>,
@@ -545,7 +549,7 @@ impl ElementBackend {
     /// backend.push_path(svg::PathData::new(HDir::LTR).move_to(0, 0).horizontal(10)).unwrap();
     /// let group = backend.finish_group(
     ///     &HashMap::new(),
-    ///     "demo",
+    ///     "Demo",
     ///     0,
     ///     0,
     ///     &NodeGeometry { entry_height: 0, height: 0, width: 0, children: vec![] },
@@ -560,7 +564,7 @@ impl ElementBackend {
         y: i64,
         geo: &NodeGeometry,
     ) -> svg::Element {
-        let mut group = svg::Element::new("g").set_all(attrs.iter());
+        let mut group = svg::Element::new("g").set_all(attrs);
         for child in self.children {
             group.push(child);
         }
@@ -772,6 +776,7 @@ impl RenderBackend for RendererBackend<'_, '_> {
 /// let group = draw_group_with_geometry(
 ///     &HashMap::new(),
 ///     "demo",
+///     "Demo",
 ///     0,
 ///     0,
 ///     &NodeGeometry { entry_height: 0, height: 0, width: 10, children: vec![] },
@@ -781,6 +786,7 @@ impl RenderBackend for RendererBackend<'_, '_> {
 /// ```
 fn draw_group_with_geometry(
     attrs: &HashMap<String, String>,
+    class: &str,
     name: &str,
     x: i64,
     y: i64,
@@ -789,7 +795,9 @@ fn draw_group_with_geometry(
 ) -> svg::Element {
     let mut backend = ElementBackend::default();
     emit(&mut backend).expect("element backend is infallible");
-    backend.finish_group(attrs, name, x, y, geo)
+    backend
+        .finish_group(attrs, name, x, y, geo)
+        .set("class", class)
 }
 
 /// Stream a debug-aware `<g>` element from a shared emit closure.
@@ -805,6 +813,7 @@ fn draw_group_with_geometry(
 ///     &mut renderer,
 ///     &HashMap::new(),
 ///     "demo",
+///     "Demo",
 ///     0,
 ///     0,
 ///     &NodeGeometry { entry_height: 0, height: 0, width: 10, children: vec![] },
@@ -812,9 +821,11 @@ fn draw_group_with_geometry(
 /// ).unwrap();
 /// assert!(out.contains("<g"));
 /// ```
+#[allow(clippy::too_many_arguments)]
 fn render_group_with_geometry(
     out: &mut svg::Renderer<'_>,
     attrs: &HashMap<String, String>,
+    class: &str,
     name: &str,
     x: i64,
     y: i64,
@@ -823,6 +834,7 @@ fn render_group_with_geometry(
 ) -> fmt::Result {
     let mut group = out.start_element("g")?;
     group.attr_hashmap(attrs)?;
+    group.attr("class", class)?;
     add_debug_attrs(&mut group, name, x, y, geo)?;
     group.finish()?;
 
@@ -857,7 +869,7 @@ fn draw_class_group_with_geometry(
     let mut backend = ElementBackend::default();
     emit(&mut backend).expect("element backend is infallible");
 
-    let mut group = svg::Element::new("g").set("class", &class);
+    let mut group = svg::Element::new("g").set("class", class);
     for child in backend.children {
         group.push(child);
     }
@@ -1506,28 +1518,21 @@ pub struct Debug {
     entry_height: i64,
     height: i64,
     width: i64,
-    attributes: HashMap<String, String>,
 }
 
 impl Debug {
+    const STYLE: &'static str = "fill: hsla(0, 100%, 90%, 0.9); stroke-width: 2; stroke: red";
+
     #[must_use]
     /// # Panics
     /// If `entry_height` is not smaller than `height`
     pub fn new(entry_height: i64, height: i64, width: i64) -> Self {
         assert!(entry_height < height);
-        let mut d = Self {
+        Self {
             entry_height,
             height,
             width,
-            attributes: HashMap::default(),
-        };
-
-        d.attributes.insert("class".to_owned(), "debug".to_owned());
-        d.attributes.insert(
-            "style".to_owned(),
-            "fill: hsla(0, 100%, 90%, 0.9); stroke-width: 2; stroke: red".to_owned(),
-        );
-        d
+        }
     }
 }
 
@@ -1548,7 +1553,8 @@ impl Node for Debug {
             .set("y", &y)
             .set("height", &self.height())
             .set("width", &self.width())
-            .set_all(self.attributes.iter())
+            .set("class", "debug")
+            .set("style", Self::STYLE)
             .debug("Debug", x, y, self)
     }
 
@@ -1565,7 +1571,8 @@ impl Node for Debug {
         rect.attr("y", y)?;
         rect.attr("height", geo.height)?;
         rect.attr("width", geo.width)?;
-        rect.attr_hashmap(&self.attributes)?;
+        rect.attr("class", "debug")?;
+        rect.attr("style", Self::STYLE)?;
         add_debug_attrs(&mut rect, "Debug", x, y, geo)?;
         rect.finish_empty()?;
         write_debug_overlay(out, x, y, geo)
@@ -1715,6 +1722,8 @@ impl<N: Node> Diagram<N> {
     }
 
     /// Return the entry for `key` in the outer `<svg>` element's attributes.
+    ///
+    /// Values supplied by the diagram take precedence over custom attributes.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.extra_attributes.entry(key)
     }
@@ -1791,6 +1800,7 @@ where
 
     fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, geo: &NodeGeometry) -> svg::Element {
         let mut e = svg::Element::new("svg")
+            .set_all(&self.extra_attributes)
             .set("xmlns", "http://www.w3.org/2000/svg")
             .set("xmlns:xlink", "http://www.w3.org/1999/xlink")
             .set("class", "railroad")
@@ -1799,9 +1809,6 @@ where
         #[cfg(feature = "visual-debug")]
         {
             e = e.set("xmlns:railroad", "http://www.github.com/lukaslueg/railroad");
-        }
-        for (k, v) in &self.extra_attributes {
-            e = e.set(&k, &v);
         }
         for extra_ele in self.extra_elements.iter().cloned() {
             e = e.add(extra_ele);
@@ -1829,13 +1836,13 @@ where
         geo: &NodeGeometry,
     ) -> fmt::Result {
         let mut svg_tag = out.start_element("svg")?;
+        svg_tag.attr_hashmap(&self.extra_attributes)?;
         svg_tag.attr("xmlns", "http://www.w3.org/2000/svg")?;
         svg_tag.attr("xmlns:xlink", "http://www.w3.org/1999/xlink")?;
         svg_tag.attr("class", "railroad")?;
         svg_tag.attr("viewBox", format_args!("0 0 {} {}", geo.width, geo.height))?;
         #[cfg(feature = "visual-debug")]
         svg_tag.attr("xmlns:railroad", "http://www.github.com/lukaslueg/railroad")?;
-        svg_tag.attr_hashmap(&self.extra_attributes)?;
         svg_tag.finish()?;
 
         for extra in &self.extra_elements {

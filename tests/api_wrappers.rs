@@ -90,6 +90,10 @@ fn alignment_can_connect_padding() {
 
 #[test]
 fn optional_repeat_and_labeled_box_render_distinct_structures() {
+    assert_eq!(
+        Diagram::new(Optional::<Empty>::default()).to_string(),
+        Diagram::new(Optional::new(Empty)).to_string(),
+    );
     let optional_svg = Diagram::new(Optional::new(Terminal::new("maybe".to_owned()))).to_string();
     assert!(optional_svg.contains("class=\"optional\""));
     assert!(optional_svg.contains("maybe"));

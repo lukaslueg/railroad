@@ -249,12 +249,10 @@ impl<N> Stack<N> {
     /// ```
     #[must_use]
     pub fn new(children: Vec<N>) -> Self {
-        let mut s = Self {
+        Self {
             children,
             ..Self::default()
-        };
-        s.attributes.insert("class".to_owned(), "stack".to_owned());
-        s
+        }
     }
 
     /// Append a child to this stack.
@@ -269,6 +267,8 @@ impl<N> Stack<N> {
     }
 
     /// Return the entry for `key` in the outer `<g>` element's attributes.
+    ///
+    /// Attributes set during drawing, including `class`, take precedence over custom values.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
@@ -434,12 +434,15 @@ where
 
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
         let left_p = self.left_padding();
-        let mut g = svg::Element::new("g").set_all(self.attributes.iter()).add(
-            svg::PathData::new(h_dir)
-                .move_to(x, y + self.entry_height())
-                .horizontal(left_p)
-                .into_path(),
-        );
+        let mut g = svg::Element::new("g")
+            .set_all(&self.attributes)
+            .set("class", "stack")
+            .add(
+                svg::PathData::new(h_dir)
+                    .move_to(x, y + self.entry_height())
+                    .horizontal(left_p)
+                    .into_path(),
+            );
 
         let mut running_y = y;
         let n = self.children.len();
@@ -534,7 +537,7 @@ where
     }
 
     fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, geo: &NodeGeometry) -> svg::Element {
-        draw_group_with_geometry(&self.attributes, "Stack", x, y, geo, |backend| {
+        draw_group_with_geometry(&self.attributes, "stack", "Stack", x, y, geo, |backend| {
             self.emit_with_geometry(backend, x, y, h_dir, geo)
         })
     }
@@ -547,9 +550,16 @@ where
         h_dir: HDir,
         geo: &NodeGeometry,
     ) -> fmt::Result {
-        render_group_with_geometry(out, &self.attributes, "Stack", x, y, geo, |backend| {
-            self.emit_with_geometry(backend, x, y, h_dir, geo)
-        })
+        render_group_with_geometry(
+            out,
+            &self.attributes,
+            "stack",
+            "Stack",
+            x,
+            y,
+            geo,
+            |backend| self.emit_with_geometry(backend, x, y, h_dir, geo),
+        )
     }
 }
 
@@ -581,12 +591,10 @@ impl<N> Choice<N> {
     /// ```
     #[must_use]
     pub fn new(children: Vec<N>) -> Self {
-        let mut c = Self {
+        Self {
             children,
             ..Self::default()
-        };
-        c.attributes.insert("class".to_owned(), "choice".to_owned());
-        c
+        }
     }
 
     /// Append an alternative child.
@@ -595,6 +603,8 @@ impl<N> Choice<N> {
     }
 
     /// Return the entry for `key` in the outer `<g>` element's attributes.
+    ///
+    /// Attributes set during drawing, including `class`, take precedence over custom values.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
@@ -778,7 +788,9 @@ where
     }
 
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
-        let mut g = svg::Element::new("g").set_all(self.attributes.iter());
+        let mut g = svg::Element::new("g")
+            .set_all(&self.attributes)
+            .set("class", "choice");
 
         g.push(
             svg::PathData::new(h_dir)
@@ -909,7 +921,7 @@ where
     }
 
     fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, geo: &NodeGeometry) -> svg::Element {
-        draw_group_with_geometry(&self.attributes, "Choice", x, y, geo, |backend| {
+        draw_group_with_geometry(&self.attributes, "choice", "Choice", x, y, geo, |backend| {
             self.emit_with_geometry(backend, x, y, h_dir, geo)
         })
     }
@@ -922,9 +934,16 @@ where
         h_dir: HDir,
         geo: &NodeGeometry,
     ) -> fmt::Result {
-        render_group_with_geometry(out, &self.attributes, "Choice", x, y, geo, |backend| {
-            self.emit_with_geometry(backend, x, y, h_dir, geo)
-        })
+        render_group_with_geometry(
+            out,
+            &self.attributes,
+            "choice",
+            "Choice",
+            x,
+            y,
+            geo,
+            |backend| self.emit_with_geometry(backend, x, y, h_dir, geo),
+        )
     }
 }
 
@@ -967,13 +986,10 @@ impl<N> MultiChoice<N> {
     /// the dimensions match those of [`Choice`].
     #[must_use]
     pub fn new(columns: Vec<Vec<N>>) -> Self {
-        let mut c = Self {
+        Self {
             columns,
             ..Self::default()
-        };
-        c.attributes
-            .insert("class".to_owned(), "multichoice".to_owned());
-        c
+        }
     }
 
     /// Append a column of alternatives.
@@ -982,6 +998,8 @@ impl<N> MultiChoice<N> {
     }
 
     /// Return the entry for `key` in the outer `<g>` element's attributes.
+    ///
+    /// Attributes set during drawing, including `class`, take precedence over custom values.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
@@ -1570,9 +1588,15 @@ where
     }
 
     fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, geo: &NodeGeometry) -> svg::Element {
-        draw_group_with_geometry(&self.attributes, "MultiChoice", x, y, geo, |backend| {
-            self.emit_with_geometry(backend, x, y, h_dir, geo)
-        })
+        draw_group_with_geometry(
+            &self.attributes,
+            "multichoice",
+            "MultiChoice",
+            x,
+            y,
+            geo,
+            |backend| self.emit_with_geometry(backend, x, y, h_dir, geo),
+        )
     }
 
     fn render_with_geometry(
@@ -1583,8 +1607,15 @@ where
         h_dir: HDir,
         geo: &NodeGeometry,
     ) -> fmt::Result {
-        render_group_with_geometry(out, &self.attributes, "MultiChoice", x, y, geo, |backend| {
-            self.emit_with_geometry(backend, x, y, h_dir, geo)
-        })
+        render_group_with_geometry(
+            out,
+            &self.attributes,
+            "multichoice",
+            "MultiChoice",
+            x,
+            y,
+            geo,
+            |backend| self.emit_with_geometry(backend, x, y, h_dir, geo),
+        )
     }
 }

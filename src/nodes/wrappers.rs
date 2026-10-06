@@ -97,7 +97,7 @@ impl<N> Scale<N> {
             inner,
             requested_scale: scale,
             precise: true,
-            attributes: HashMap::from([("class".to_owned(), "scale".to_owned())]),
+            attributes: HashMap::default(),
         }
     }
 
@@ -114,6 +114,8 @@ impl<N> Scale<N> {
     }
 
     /// Return the entry for `key` in the outer `<g>` element's attributes.
+    ///
+    /// Attributes set during drawing, including `class`, take precedence over custom values.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
@@ -284,7 +286,7 @@ impl<N: Node> Node for Scale<N> {
         if self.requested_scale == 0.0 {
             return svg::Element::new("g");
         }
-        draw_group_with_geometry(&self.attributes, "Scale", x, y, geo, |backend| {
+        draw_group_with_geometry(&self.attributes, "scale", "Scale", x, y, geo, |backend| {
             self.emit(backend, x, y, h_dir, geo)
         })
     }
@@ -300,9 +302,16 @@ impl<N: Node> Node for Scale<N> {
         if self.requested_scale == 0.0 {
             return Ok(());
         }
-        render_group_with_geometry(out, &self.attributes, "Scale", x, y, geo, |backend| {
-            self.emit(backend, x, y, h_dir, geo)
-        })
+        render_group_with_geometry(
+            out,
+            &self.attributes,
+            "scale",
+            "Scale",
+            x,
+            y,
+            geo,
+            |backend| self.emit(backend, x, y, h_dir, geo),
+        )
     }
 }
 
@@ -389,7 +398,7 @@ impl<N> Alignment<N> {
             horizontal,
             vertical,
             connect_rails,
-            attributes: HashMap::from([("class".to_owned(), "alignment".to_owned())]),
+            attributes: HashMap::default(),
         }
     }
 
@@ -400,6 +409,8 @@ impl<N> Alignment<N> {
     }
 
     /// Return the entry for `key` in the outer `<g>` element's attributes.
+    ///
+    /// Attributes set during drawing, including `class`, take precedence over custom values.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
@@ -485,9 +496,15 @@ impl<N: Node> Node for Alignment<N> {
     }
 
     fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, geo: &NodeGeometry) -> svg::Element {
-        draw_group_with_geometry(&self.attributes, "Alignment", x, y, geo, |backend| {
-            self.emit(backend, x, y, h_dir, geo)
-        })
+        draw_group_with_geometry(
+            &self.attributes,
+            "alignment",
+            "Alignment",
+            x,
+            y,
+            geo,
+            |backend| self.emit(backend, x, y, h_dir, geo),
+        )
     }
 
     fn render_with_geometry(
@@ -498,9 +515,16 @@ impl<N: Node> Node for Alignment<N> {
         h_dir: HDir,
         geo: &NodeGeometry,
     ) -> fmt::Result {
-        render_group_with_geometry(out, &self.attributes, "Alignment", x, y, geo, |backend| {
-            self.emit(backend, x, y, h_dir, geo)
-        })
+        render_group_with_geometry(
+            out,
+            &self.attributes,
+            "alignment",
+            "Alignment",
+            x,
+            y,
+            geo,
+            |backend| self.emit(backend, x, y, h_dir, geo),
+        )
     }
 }
 
@@ -540,14 +564,12 @@ impl<N> Link<N> {
     /// assert!(Diagram::new(node).to_string().starts_with("<svg"));
     /// ```
     pub fn new(inner: N, uri: String) -> Self {
-        let mut l = Self {
+        Self {
             inner,
             uri,
             target: None,
             attributes: HashMap::default(),
-        };
-        l.attributes.insert("class".to_owned(), "link".to_owned());
-        l
+        }
     }
 
     /// Set the `target` attribute for the generated `<a>` element.
@@ -558,6 +580,8 @@ impl<N> Link<N> {
     }
 
     /// Return the entry for `key` in the outer `<a>` element's attributes.
+    ///
+    /// Attributes set during drawing, including `class`, take precedence over custom values.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
@@ -594,6 +618,8 @@ where
 
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
         let mut a = svg::Element::new("a")
+            .set_all(&self.attributes)
+            .set("class", "link")
             .debug("Link", x, y, self)
             .set("xlink:href", &self.uri);
         a = match self.target {
@@ -602,8 +628,7 @@ where
             Some(LinkTarget::Top) => a.set("target", "_top"),
             None => a,
         };
-        a.set_all(self.attributes.iter())
-            .add(self.inner.draw(x, y, h_dir))
+        a.add(self.inner.draw(x, y, h_dir))
     }
 
     fn compute_geometry(&self) -> NodeGeometry {
@@ -624,6 +649,8 @@ where
         self.emit_with_geometry(&mut backend, x, y, h_dir, geo)
             .expect("element backend is infallible");
         let mut a = svg::Element::new("a")
+            .set_all(&self.attributes)
+            .set("class", "link")
             .debug_with_geometry("Link", x, y, geo)
             .set("xlink:href", &self.uri);
         a = match self.target {
@@ -632,7 +659,6 @@ where
             Some(LinkTarget::Top) => a.set("target", "_top"),
             None => a,
         };
-        let mut a = a.set_all(self.attributes.iter());
         for child in backend.children {
             a.push(child);
         }
@@ -648,6 +674,8 @@ where
         geo: &NodeGeometry,
     ) -> fmt::Result {
         let mut a = out.start_element("a")?;
+        a.attr_hashmap(&self.attributes)?;
+        a.attr("class", "link")?;
         a.attr("xlink:href", &self.uri)?;
         match self.target {
             Some(LinkTarget::Blank) => a.attr("target", "_blank")?,
@@ -655,7 +683,6 @@ where
             Some(LinkTarget::Top) => a.attr("target", "_top")?,
             None => {}
         }
-        a.attr_hashmap(&self.attributes)?;
         crate::add_debug_attrs(&mut a, "Link", x, y, geo)?;
         a.finish()?;
         self.emit_with_geometry(&mut crate::RendererBackend { out }, x, y, h_dir, geo)?;
@@ -682,13 +709,10 @@ impl<N> Optional<N> {
     /// assert!(Diagram::new(node).to_string().starts_with("<svg"));
     /// ```
     pub fn new(inner: N) -> Self {
-        let mut o = Self {
+        Self {
             inner,
             attributes: HashMap::default(),
-        };
-        o.attributes
-            .insert("class".to_owned(), "optional".to_owned());
-        o
+        }
     }
 
     /// Unwrap this wrapper, returning the inner node.
@@ -697,6 +721,8 @@ impl<N> Optional<N> {
     }
 
     /// Return the entry for `key` in the outer `<g>` element's attributes.
+    ///
+    /// Attributes set during drawing, including `class`, take precedence over custom values.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
@@ -776,8 +802,9 @@ where
             .into_path();
 
         svg::Element::new("g")
+            .set_all(&self.attributes)
+            .set("class", "optional")
             .debug("Optional", x, y, self)
-            .set_all(self.attributes.iter())
             .add(v)
             .add(i)
     }
@@ -797,9 +824,15 @@ where
     }
 
     fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, geo: &NodeGeometry) -> svg::Element {
-        draw_group_with_geometry(&self.attributes, "Optional", x, y, geo, |backend| {
-            self.emit_with_geometry(backend, x, y, h_dir, geo)
-        })
+        draw_group_with_geometry(
+            &self.attributes,
+            "optional",
+            "Optional",
+            x,
+            y,
+            geo,
+            |backend| self.emit_with_geometry(backend, x, y, h_dir, geo),
+        )
     }
 
     fn render_with_geometry(
@@ -810,9 +843,16 @@ where
         h_dir: HDir,
         geo: &NodeGeometry,
     ) -> fmt::Result {
-        render_group_with_geometry(out, &self.attributes, "Optional", x, y, geo, |backend| {
-            self.emit_with_geometry(backend, x, y, h_dir, geo)
-        })
+        render_group_with_geometry(
+            out,
+            &self.attributes,
+            "optional",
+            "Optional",
+            x,
+            y,
+            geo,
+            |backend| self.emit_with_geometry(backend, x, y, h_dir, geo),
+        )
     }
 }
 
@@ -842,17 +882,17 @@ impl<I, R> Repeat<I, R> {
     /// assert!(Diagram::new(r).to_string().starts_with("<svg"));
     /// ```
     pub fn new(inner: I, repeat: R) -> Self {
-        let mut r = Self {
+        Self {
             inner,
             repeat,
             spacing: 10,
             attributes: HashMap::default(),
-        };
-        r.attributes.insert("class".to_owned(), "repeat".to_owned());
-        r
+        }
     }
 
     /// Return the entry for `key` in the outer `<g>` element's attributes.
+    ///
+    /// Attributes set during drawing, including `class`, take precedence over custom values.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
@@ -964,7 +1004,9 @@ where
     }
 
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
-        let mut g = svg::Element::new("g").set_all(self.attributes.iter());
+        let mut g = svg::Element::new("g")
+            .set_all(&self.attributes)
+            .set("class", "repeat");
 
         g.push(
             svg::PathData::new(h_dir)
@@ -1029,7 +1071,7 @@ where
     }
 
     fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, geo: &NodeGeometry) -> svg::Element {
-        draw_group_with_geometry(&self.attributes, "Repeat", x, y, geo, |backend| {
+        draw_group_with_geometry(&self.attributes, "repeat", "Repeat", x, y, geo, |backend| {
             self.emit_with_geometry(backend, x, y, h_dir, geo)
         })
     }
@@ -1042,9 +1084,16 @@ where
         h_dir: HDir,
         geo: &NodeGeometry,
     ) -> fmt::Result {
-        render_group_with_geometry(out, &self.attributes, "Repeat", x, y, geo, |backend| {
-            self.emit_with_geometry(backend, x, y, h_dir, geo)
-        })
+        render_group_with_geometry(
+            out,
+            &self.attributes,
+            "repeat",
+            "Repeat",
+            x,
+            y,
+            geo,
+            |backend| self.emit_with_geometry(backend, x, y, h_dir, geo),
+        )
     }
 }
 
@@ -1084,19 +1133,18 @@ impl<T, U> LabeledBox<T, U> {
     /// assert!(Diagram::new(labeled).to_string().starts_with("<svg"));
     /// ```
     pub fn new(inner: T, label: U) -> Self {
-        let mut l = Self {
+        Self {
             inner,
             label,
             spacing: 8,
             padding: 8,
             attributes: HashMap::default(),
-        };
-        l.attributes
-            .insert("class".to_owned(), "labeledbox".to_owned());
-        l
+        }
     }
 
     /// Return the entry for `key` in the outer `<g>` element's attributes.
+    ///
+    /// Attributes set during drawing, including `class`, take precedence over custom values.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
@@ -1224,7 +1272,8 @@ where
                 y + self.padding() + self.label.height() + self.spacing(),
                 h_dir,
             ))
-            .set_all(self.attributes.iter())
+            .set_all(&self.attributes)
+            .set("class", "labeledbox")
             .debug("LabeledBox", x, y, self)
     }
 
@@ -1254,9 +1303,15 @@ where
     }
 
     fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, geo: &NodeGeometry) -> svg::Element {
-        draw_group_with_geometry(&self.attributes, "LabeledBox", x, y, geo, |backend| {
-            self.emit_with_geometry(backend, x, y, h_dir, geo)
-        })
+        draw_group_with_geometry(
+            &self.attributes,
+            "labeledbox",
+            "LabeledBox",
+            x,
+            y,
+            geo,
+            |backend| self.emit_with_geometry(backend, x, y, h_dir, geo),
+        )
     }
 
     fn render_with_geometry(
@@ -1267,8 +1322,15 @@ where
         h_dir: HDir,
         geo: &NodeGeometry,
     ) -> fmt::Result {
-        render_group_with_geometry(out, &self.attributes, "LabeledBox", x, y, geo, |backend| {
-            self.emit_with_geometry(backend, x, y, h_dir, geo)
-        })
+        render_group_with_geometry(
+            out,
+            &self.attributes,
+            "labeledbox",
+            "LabeledBox",
+            x,
+            y,
+            geo,
+            |backend| self.emit_with_geometry(backend, x, y, h_dir, geo),
+        )
     }
 }

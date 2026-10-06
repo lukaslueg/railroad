@@ -29,16 +29,15 @@ impl Terminal {
     /// ```
     #[must_use]
     pub fn new(label: String) -> Self {
-        let mut t = Self {
+        Self {
             label,
             attributes: HashMap::default(),
-        };
-        t.attributes
-            .insert("class".to_owned(), "terminal".to_owned());
-        t
+        }
     }
 
     /// Return the entry for `key` in the outer `<g>` element's attributes.
+    ///
+    /// Attributes set during drawing, including `class`, take precedence over custom values.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
@@ -72,15 +71,16 @@ impl Node for Terminal {
             .set("y", &y)
             .set("height", &self.height())
             .set("width", &self.width())
-            .set("rx", &10)
-            .set("ry", &10);
+            .set("rx", "10")
+            .set("ry", "10");
         let t = svg::Element::new("text")
             .set("x", &(x + self.width() / 2))
             .set("y", &(y + self.entry_height() + 5))
             .text(&self.label);
         svg::Element::new("g")
+            .set_all(&self.attributes)
+            .set("class", "terminal")
             .debug("terminal", x, y, self)
-            .set_all(self.attributes.iter())
             .add(r)
             .add(t)
     }
@@ -93,9 +93,16 @@ impl Node for Terminal {
         _h_dir: HDir,
         geo: &NodeGeometry,
     ) -> fmt::Result {
-        render_group_with_geometry(out, &self.attributes, "terminal", x, y, geo, |backend| {
-            self.emit_with_geometry(backend, x, y, geo)
-        })
+        render_group_with_geometry(
+            out,
+            &self.attributes,
+            "terminal",
+            "terminal",
+            x,
+            y,
+            geo,
+            |backend| self.emit_with_geometry(backend, x, y, geo),
+        )
     }
 }
 
@@ -120,16 +127,15 @@ impl NonTerminal {
     /// ```
     #[must_use]
     pub fn new(label: String) -> Self {
-        let mut nt = Self {
+        Self {
             label,
             attributes: HashMap::default(),
-        };
-        nt.attributes
-            .insert("class".to_owned(), "nonterminal".to_owned());
-        nt
+        }
     }
 
     /// Return the entry for `key` in the outer `<g>` element's attributes.
+    ///
+    /// Attributes set during drawing, including `class`, take precedence over custom values.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
@@ -159,8 +165,9 @@ impl Node for NonTerminal {
 
     fn draw(&self, x: i64, y: i64, _: HDir) -> svg::Element {
         svg::Element::new("g")
+            .set_all(&self.attributes)
+            .set("class", "nonterminal")
             .debug("NonTerminal", x, y, self)
-            .set_all(self.attributes.iter())
             .add(
                 svg::Element::new("rect")
                     .set("x", &x)
@@ -184,9 +191,16 @@ impl Node for NonTerminal {
         _h_dir: HDir,
         geo: &NodeGeometry,
     ) -> fmt::Result {
-        render_group_with_geometry(out, &self.attributes, "NonTerminal", x, y, geo, |backend| {
-            self.emit_with_geometry(backend, x, y, geo)
-        })
+        render_group_with_geometry(
+            out,
+            &self.attributes,
+            "nonterminal",
+            "NonTerminal",
+            x,
+            y,
+            geo,
+            |backend| self.emit_with_geometry(backend, x, y, geo),
+        )
     }
 }
 
@@ -214,16 +228,15 @@ impl Comment {
     /// ```
     #[must_use]
     pub fn new(text: String) -> Self {
-        let mut c = Self {
+        Self {
             text,
             attributes: HashMap::default(),
-        };
-        c.attributes
-            .insert("class".to_owned(), "comment".to_owned());
-        c
+        }
     }
 
     /// Return the entry for `key` in the `<text>` element's attributes.
+    ///
+    /// Attributes set during drawing, including `class`, take precedence over custom values.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
@@ -242,7 +255,8 @@ impl Node for Comment {
 
     fn draw(&self, x: i64, y: i64, _: HDir) -> svg::Element {
         svg::Element::new("text")
-            .set_all(self.attributes.iter())
+            .set_all(&self.attributes)
+            .set("class", "comment")
             .set("x", &(x + self.width() / 2))
             .set("y", &(y + 15))
             .text(&self.text)
@@ -259,6 +273,7 @@ impl Node for Comment {
     ) -> fmt::Result {
         let mut text = out.start_element("text")?;
         text.attr_hashmap(&self.attributes)?;
+        text.attr("class", "comment")?;
         text.attr("x", x + geo.width / 2)?;
         text.attr("y", y + 15)?;
         crate::add_debug_attrs(&mut text, "Comment", x, y, geo)?;
