@@ -555,6 +555,16 @@ impl PathData {
         }
     }
 
+    /// Draw a rail, omitting its arrowhead if the enclosing node does not
+    /// provide enough clearance above and below the rail.
+    pub(crate) fn horizontal_with_clearance(self, h: i64, above: i64, below: i64) -> Self {
+        if above >= Self::PADDING && below >= Self::PADDING {
+            self.horizontal(h)
+        } else {
+            self.line_rel(h, 0)
+        }
+    }
+
     /// Draw a vertical segment of height `h` from the cursor's current position.
     ///
     /// If `h` is greater than 50 or less than -50, add an arrowhead near the

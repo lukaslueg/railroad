@@ -448,15 +448,11 @@ impl<N> Alignment<N> {
             for (offset, length) in [(0, dx), (dx + child_geo.width, extra_width - dx)] {
                 if length > 0 {
                     let path = svg::PathData::new(h_dir).move_to(x + offset, y + geo.entry_height);
-                    // A zero-height child still supports a rail, but not arrowheads
-                    // that protrude above or below the advertised rectangle.
-                    let path = if geo.entry_height >= svg::PathData::PADDING
-                        && geo.height_below_entry() >= svg::PathData::PADDING
-                    {
-                        path.horizontal(length)
-                    } else {
-                        path.line_rel(length, 0)
-                    };
+                    let path = path.horizontal_with_clearance(
+                        length,
+                        geo.entry_height,
+                        geo.height_below_entry(),
+                    );
                     backend.push_path(path)?;
                 }
             }

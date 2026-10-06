@@ -333,13 +333,18 @@ impl<N> Stack<N> {
         if let Some(last_child) = self.children.last() {
             let last_geo = geo.children.last().unwrap();
             if self.children.len() > 1 {
+                let rail_y = running_y - y + last_geo.entry_height;
                 backend.push_path(
                     svg::PathData::new(h_dir)
                         .move_to(
                             x + left_p + last_geo.width,
                             running_y + last_geo.entry_height,
                         )
-                        .horizontal(geo.width - last_geo.width - left_p - ARC_RADIUS * 2)
+                        .horizontal_with_clearance(
+                            geo.width - last_geo.width - left_p - ARC_RADIUS * 2,
+                            rail_y,
+                            geo.height - rail_y,
+                        )
                         .arc(ARC_RADIUS, svg::Arc::WestToNorth)
                         .vertical(
                             -geo.height
@@ -474,13 +479,18 @@ where
 
         if let Some(last_child) = self.children.last() {
             if self.children.len() > 1 {
+                let rail_y = running_y - y + last_child.entry_height();
                 g.push(
                     svg::PathData::new(h_dir)
                         .move_to(
                             x + left_p + last_child.width(),
                             running_y + last_child.entry_height(),
                         )
-                        .horizontal(self.width() - last_child.width() - left_p - ARC_RADIUS * 2)
+                        .horizontal_with_clearance(
+                            self.width() - last_child.width() - left_p - ARC_RADIUS * 2,
+                            rail_y,
+                            self.height() - rail_y,
+                        )
                         .arc(ARC_RADIUS, svg::Arc::WestToNorth)
                         .vertical(
                             -self.height()
@@ -647,8 +657,10 @@ impl<N> Choice<N> {
                 .move_to(x, y + geo.entry_height)
                 .horizontal(inner_padding)
                 .move_rel(geo.children.first().map(|g| g.width).unwrap_or(0), 0)
-                .horizontal(
+                .horizontal_with_clearance(
                     geo.width - inner_padding - geo.children.first().map(|g| g.width).unwrap_or(0),
+                    geo.entry_height,
+                    geo.height_below_entry(),
                 ),
         )?;
 
@@ -703,13 +715,18 @@ impl<N> Choice<N> {
                 .skip(1)
                 .zip(geo.children.iter().skip(1))
             {
+                let rail_y = running_y - y + cmp::max(ARC_RADIUS, child_geo.entry_height);
                 backend.push_path(
                     svg::PathData::new(h_dir)
                         .move_to(x + ARC_RADIUS, running_y)
                         .vertical(cmp::max(0, child_geo.entry_height - ARC_RADIUS))
                         .arc(ARC_RADIUS, svg::Arc::NorthToEast)
                         .move_rel(child_geo.width, 0)
-                        .horizontal(max_child_width - child_geo.width)
+                        .horizontal_with_clearance(
+                            max_child_width - child_geo.width,
+                            rail_y,
+                            geo.height - rail_y,
+                        )
                         .arc(ARC_RADIUS, svg::Arc::WestToNorth)
                         .vertical(-cmp::max(0, child_geo.entry_height - ARC_RADIUS)),
                 )?;
@@ -800,10 +817,12 @@ where
                     self.children.first().map(Node::width).unwrap_or_default(),
                     0,
                 )
-                .horizontal(
+                .horizontal_with_clearance(
                     self.width()
                         - self.inner_padding()
                         - self.children.first().map(Node::width).unwrap_or_default(),
+                    self.entry_height(),
+                    self.height_below_entry(),
                 )
                 .into_path(),
         );
@@ -858,15 +877,18 @@ where
                     self.spacing + self.children[0].height_below_entry(),
                 );
             for child in self.children.iter().skip(1) {
+                let rail_y = running_y - y + cmp::max(ARC_RADIUS, child.entry_height());
                 g.push(
                     svg::PathData::new(h_dir)
                         .move_to(x + ARC_RADIUS, running_y)
                         .vertical(cmp::max(0, child.entry_height() - ARC_RADIUS))
                         .arc(ARC_RADIUS, svg::Arc::NorthToEast)
                         .move_rel(child.width(), 0)
-                        .horizontal(
+                        .horizontal_with_clearance(
                             self.children.iter().map(Node::width).max().unwrap_or(0)
                                 - child.width(),
+                            rail_y,
+                            self.height() - rail_y,
                         )
                         .arc(ARC_RADIUS, svg::Arc::WestToNorth)
                         .vertical(-cmp::max(0, child.entry_height() - ARC_RADIUS))
@@ -1366,14 +1388,22 @@ impl<N> MultiChoice<N> {
                         backend.push_path(
                             svg::PathData::new(h_dir)
                                 .move_to(child_right_x, child_entry_y)
-                                .horizontal(exit_x - child_right_x),
+                                .horizontal_with_clearance(
+                                    exit_x - child_right_x,
+                                    child_entry_y - y,
+                                    y + geo.height - child_entry_y,
+                                ),
                         )?;
                     // Lower rows: curve upward into the shared right-side exit.
                     } else {
                         backend.push_path(
                             svg::PathData::new(h_dir)
                                 .move_to(child_right_x, child_entry_y)
-                                .horizontal(padded_right_x - child_right_x)
+                                .horizontal_with_clearance(
+                                    padded_right_x - child_right_x,
+                                    child_entry_y - y,
+                                    y + geo.height - child_entry_y,
+                                )
                                 .arc(ARC_RADIUS, svg::Arc::WestToNorth),
                         )?;
                         final_merge_starts.push(child_entry_y - ARC_RADIUS);

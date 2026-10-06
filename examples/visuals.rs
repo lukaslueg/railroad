@@ -221,6 +221,29 @@ fn main() {
     f.write_all(b"</section>").unwrap();
     hr!();
 
+    f.write_all(b"<h2>Container arrowhead clearance</h2><p>At 4x scale, the outermost rails beside empty or tiny children should have no protruding or clipped arrowheads. The stack's middle return rail should still have an arrowhead. The last example runs right-to-left on the repetition rail.</p>")
+        .unwrap();
+    dia!(Scale::new(choice!(Empty, term!("long alternative")), 4.0));
+    dia!(Scale::new(choice!(term!("long alternative"), Empty), 4.0));
+    dia!(Scale::new(
+        choice!(
+            Scale::new(term!("tiny"), 0.2),
+            term!("long alternative"),
+            Scale::new(term!("tiny"), 0.2)
+        ),
+        4.0
+    ));
+    dia!(Scale::new(
+        multichoice!([Empty, term!("long alternative"), Empty]),
+        4.0
+    ));
+    dia!(Scale::new(stck!(term!("wide child"), Empty), 4.0));
+    dia!(rpt!(
+        term!("forward"),
+        Scale::new(choice!(Empty, term!("long alternative"), Empty), 4.0)
+    ));
+    hr!();
+
     // Comments name their placement inside the surrounding frame.
     f.write_all(
         b"<h2>Alignment</h2><p>Each comment names its placement within its surrounding box.</p><p>Choice: start/top, centered, and end/bottom in equal-size frames.</p>",
