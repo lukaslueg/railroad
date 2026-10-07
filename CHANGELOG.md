@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Add `Scale` for uniform scaling
 - Add `Alignment`
 - Attributes set by built-in Nodes take precedence over custom attributes
+- Fix attributes being emitted more than once, breaking XML
 - Fix disconnected `MultiChoice` exit routes and insufficient bend clearance for short alternatives
 - Fix "arrowheads" on the connecting rails sometimes clipping the advertised bounds of their Nodes
 - Add `Annotation` for checkpoints connected to any node, with optional ahead/behind indicators
