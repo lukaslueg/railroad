@@ -15,10 +15,11 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct Sequence<N> {
     children: Vec<N>,
-    spacing: i64,
 }
 
 impl<N> Sequence<N> {
+    const SPACING: i64 = 10;
+
     /// Create a `Sequence` from an ordered list of children.
     ///
     /// The children are connected left-to-right with a horizontal path segment
@@ -36,10 +37,7 @@ impl<N> Sequence<N> {
     /// ```
     #[must_use]
     pub fn new(children: Vec<N>) -> Self {
-        Self {
-            children,
-            ..Self::default()
-        }
+        Self { children }
     }
 
     /// Append a child and return `&mut self` for chaining.
@@ -83,7 +81,7 @@ impl<N> Sequence<N> {
                 h_dir,
                 child_geo,
             )?;
-            running_x += child_geo.width + self.spacing;
+            running_x += child_geo.width + Self::SPACING;
         }
 
         let mut running_x = x;
@@ -91,9 +89,9 @@ impl<N> Sequence<N> {
             backend.push_path(
                 svg::PathData::new(h_dir)
                     .move_to(running_x + child_geo.width, y + geo.entry_height)
-                    .horizontal(self.spacing),
+                    .horizontal(Self::SPACING),
             )?;
-            running_x += child_geo.width + self.spacing;
+            running_x += child_geo.width + Self::SPACING;
         }
         Ok(())
     }
@@ -103,7 +101,6 @@ impl<N> Default for Sequence<N> {
     fn default() -> Self {
         Self {
             children: Vec::new(),
-            spacing: 10,
         }
     }
 }
@@ -144,7 +141,7 @@ where
         let l = self.children.len();
         if l > 1 {
             self.children.iter().map(Node::width).sum::<i64>()
-                + (i64::try_from(l).unwrap() - 1) * self.spacing
+                + (i64::try_from(l).unwrap() - 1) * Self::SPACING
         } else {
             self.children.iter().map(Node::width).sum()
         }
@@ -159,7 +156,7 @@ where
                 y + self.entry_height() - child.entry_height(),
                 h_dir,
             ));
-            running_x += child.width() + self.spacing;
+            running_x += child.width() + Self::SPACING;
         }
 
         let mut running_x = x;
@@ -167,10 +164,10 @@ where
             g.push(
                 svg::PathData::new(h_dir)
                     .move_to(running_x + child.width(), y + self.entry_height())
-                    .horizontal(self.spacing)
+                    .horizontal(Self::SPACING)
                     .into_path(),
             );
-            running_x += child.width() + self.spacing;
+            running_x += child.width() + Self::SPACING;
         }
         g.debug("Sequence", x, y, self)
     }
@@ -187,7 +184,7 @@ where
         let total_width: i64 = children.iter().map(|g| g.width).sum();
         let l = children.len();
         let width = if l > 1 {
-            total_width + (i64::try_from(l).unwrap() - 1) * self.spacing
+            total_width + (i64::try_from(l).unwrap() - 1) * Self::SPACING
         } else {
             total_width
         };
@@ -225,13 +222,13 @@ where
 #[derive(Debug, Clone)]
 pub struct Stack<N> {
     children: Vec<N>,
-    left_padding: i64,
-    right_padding: i64,
-    spacing: i64,
     attributes: HashMap<String, String>,
 }
 
 impl<N> Stack<N> {
+    const SPACING: i64 = 10;
+    const PADDING: i64 = ARC_RADIUS * 2;
+
     /// Create a `Stack` from an ordered list of children.
     ///
     /// Children are connected top-to-bottom: the path exits the right side of
@@ -307,7 +304,7 @@ impl<N> Stack<N> {
                     .arc(ARC_RADIUS, svg::Arc::WestToSouth)
                     .vertical(cmp::max(
                         0,
-                        child_geo.height_below_entry() + self.spacing - ARC_RADIUS * 2,
+                        child_geo.height_below_entry() + Self::SPACING - ARC_RADIUS * 2,
                     ))
                     .arc(ARC_RADIUS, svg::Arc::NorthToWest)
                     .horizontal(-child_geo.width)
@@ -315,14 +312,14 @@ impl<N> Stack<N> {
                     .vertical(cmp::max(0, next_geo.entry_height - ARC_RADIUS))
                     .vertical(cmp::max(
                         0,
-                        (self.spacing - ARC_RADIUS * 2) / 2 + (self.spacing - ARC_RADIUS * 2) % 2,
+                        (Self::SPACING - ARC_RADIUS * 2) / 2 + (Self::SPACING - ARC_RADIUS * 2) % 2,
                     ))
                     .arc(ARC_RADIUS, svg::Arc::NorthToEast),
             )?;
             backend.push_child(child, x + left_p, running_y, h_dir, child_geo)?;
             let ph = child_geo.entry_height
                 + cmp::max(
-                    child_geo.height_below_entry() + self.spacing,
+                    child_geo.height_below_entry() + Self::SPACING,
                     ARC_RADIUS * 2,
                 )
                 + ARC_RADIUS
@@ -362,14 +359,14 @@ impl<N> Stack<N> {
 
     fn padded_height(&self, child: &dyn Node, next_child: &dyn Node) -> i64 {
         child.entry_height()
-            + cmp::max(child.height_below_entry() + self.spacing, ARC_RADIUS * 2)
+            + cmp::max(child.height_below_entry() + Self::SPACING, ARC_RADIUS * 2)
             + ARC_RADIUS
             + cmp::max(0, ARC_RADIUS - next_child.entry_height())
     }
 
     fn left_padding(&self) -> i64 {
         if self.children.len() > 1 {
-            cmp::max(self.left_padding, ARC_RADIUS)
+            Self::PADDING
         } else {
             0
         }
@@ -377,7 +374,7 @@ impl<N> Stack<N> {
 
     fn right_padding(&self) -> i64 {
         if self.children.len() > 1 {
-            self.right_padding
+            Self::PADDING
         } else {
             0
         }
@@ -388,9 +385,6 @@ impl<N> Default for Stack<N> {
     fn default() -> Self {
         Self {
             children: Vec::default(),
-            left_padding: ARC_RADIUS * 2,
-            right_padding: ARC_RADIUS * 2,
-            spacing: 10,
             attributes: HashMap::default(),
         }
     }
@@ -460,7 +454,7 @@ where
                     .arc(ARC_RADIUS, svg::Arc::WestToSouth)
                     .vertical(cmp::max(
                         0,
-                        child.height_below_entry() + self.spacing - ARC_RADIUS * 2,
+                        child.height_below_entry() + Self::SPACING - ARC_RADIUS * 2,
                     ))
                     .arc(ARC_RADIUS, svg::Arc::NorthToWest)
                     .horizontal(-child.width())
@@ -468,7 +462,7 @@ where
                     .vertical(cmp::max(0, next_child.entry_height() - ARC_RADIUS))
                     .vertical(cmp::max(
                         0,
-                        (self.spacing - ARC_RADIUS * 2) / 2 + (self.spacing - ARC_RADIUS * 2) % 2,
+                        (Self::SPACING - ARC_RADIUS * 2) / 2 + (Self::SPACING - ARC_RADIUS * 2) % 2,
                     ))
                     .arc(ARC_RADIUS, svg::Arc::NorthToEast)
                     .into_path(),
@@ -532,7 +526,7 @@ where
             .map(|w| {
                 let (cg, ng) = (&w[0], &w[1]);
                 cg.entry_height
-                    + cmp::max(cg.height_below_entry() + self.spacing, ARC_RADIUS * 2)
+                    + cmp::max(cg.height_below_entry() + Self::SPACING, ARC_RADIUS * 2)
                     + ARC_RADIUS
                     + cmp::max(0, ARC_RADIUS - ng.entry_height)
             })
@@ -579,11 +573,12 @@ where
 #[derive(Debug, Clone)]
 pub struct Choice<N> {
     children: Vec<N>,
-    spacing: i64,
     attributes: HashMap<String, String>,
 }
 
 impl<N> Choice<N> {
+    const SPACING: i64 = 10;
+
     /// Create a `Choice` from an ordered list of alternatives.
     ///
     /// The first child is drawn inline (on the main path); additional children
@@ -634,7 +629,7 @@ impl<N> Choice<N> {
     }
 
     fn padded_height(&self, child: &dyn Node) -> i64 {
-        cmp::max(ARC_RADIUS, child.entry_height()) + child.height_below_entry() + self.spacing
+        cmp::max(ARC_RADIUS, child.entry_height()) + child.height_below_entry() + Self::SPACING
     }
 
     /// Emit all choice branches and their connecting arcs through the shared backend.
@@ -678,24 +673,24 @@ impl<N> Choice<N> {
                     .arc(ARC_RADIUS, svg::Arc::WestToSouth)
                     .vertical(cmp::max(
                         0,
-                        first_geo.height_below_entry() + self.spacing - ARC_RADIUS,
+                        first_geo.height_below_entry() + Self::SPACING - ARC_RADIUS,
                     ))
                     .move_rel(geo.width - ARC_RADIUS * 2, 0)
                     .vertical(-cmp::max(
                         0,
-                        first_geo.height_below_entry() + self.spacing - ARC_RADIUS,
+                        first_geo.height_below_entry() + Self::SPACING - ARC_RADIUS,
                     ))
                     .arc(ARC_RADIUS, svg::Arc::SouthToEast),
             )?;
 
             let base_y = y
                 + geo.entry_height
-                + cmp::max(ARC_RADIUS, self.spacing + first_geo.height_below_entry());
+                + cmp::max(ARC_RADIUS, Self::SPACING + first_geo.height_below_entry());
             let mut running_y = base_y;
             for child_geo in geo.children.iter().skip(1).rev().skip(1).rev() {
                 let padded = cmp::max(ARC_RADIUS, child_geo.entry_height)
                     + child_geo.height_below_entry()
-                    + self.spacing;
+                    + Self::SPACING;
                 let zz = cmp::max(0, child_geo.entry_height - ARC_RADIUS);
                 let z = padded - zz;
                 backend.push_path(
@@ -739,7 +734,7 @@ impl<N> Choice<N> {
                 )?;
                 running_y += cmp::max(ARC_RADIUS, child_geo.entry_height)
                     + child_geo.height_below_entry()
-                    + self.spacing;
+                    + Self::SPACING;
             }
         }
         Ok(())
@@ -756,7 +751,6 @@ impl<N> Default for Choice<N> {
     fn default() -> Self {
         Self {
             children: Vec::default(),
-            spacing: 10,
             attributes: HashMap::default(),
         }
     }
@@ -782,7 +776,7 @@ where
             self.entry_height()
                 + cmp::max(
                     ARC_RADIUS,
-                    self.spacing + self.children[0].height_below_entry(),
+                    Self::SPACING + self.children[0].height_below_entry(),
                 )
                 + self
                     .children
@@ -790,7 +784,7 @@ where
                     .skip(1)
                     .map(|c| self.padded_height(c))
                     .sum::<i64>()
-                - self.spacing
+                - Self::SPACING
         }
     }
 
@@ -838,12 +832,12 @@ where
                     .arc(ARC_RADIUS, svg::Arc::WestToSouth)
                     .vertical(cmp::max(
                         0,
-                        self.children[0].height_below_entry() + self.spacing - ARC_RADIUS,
+                        self.children[0].height_below_entry() + Self::SPACING - ARC_RADIUS,
                     ))
                     .move_rel(self.width() - ARC_RADIUS * 2, 0)
                     .vertical(-cmp::max(
                         0,
-                        self.children[0].height_below_entry() + self.spacing - ARC_RADIUS,
+                        self.children[0].height_below_entry() + Self::SPACING - ARC_RADIUS,
                     ))
                     .arc(ARC_RADIUS, svg::Arc::SouthToEast)
                     .into_path(),
@@ -853,7 +847,7 @@ where
                 + self.entry_height()
                 + cmp::max(
                     ARC_RADIUS,
-                    self.spacing + self.children[0].height_below_entry(),
+                    Self::SPACING + self.children[0].height_below_entry(),
                 );
             for child in self.children.iter().skip(1).rev().skip(1).rev() {
                 let z = self.padded_height(child);
@@ -874,7 +868,7 @@ where
                 + self.entry_height()
                 + cmp::max(
                     ARC_RADIUS,
-                    self.spacing + self.children[0].height_below_entry(),
+                    Self::SPACING + self.children[0].height_below_entry(),
                 );
             for child in self.children.iter().skip(1) {
                 let rail_y = running_y - y + cmp::max(ARC_RADIUS, child.entry_height());
@@ -924,15 +918,17 @@ where
         } else {
             let first = &children[0];
             entry_height
-                + cmp::max(ARC_RADIUS, self.spacing + first.height_below_entry())
+                + cmp::max(ARC_RADIUS, Self::SPACING + first.height_below_entry())
                 + children
                     .iter()
                     .skip(1)
                     .map(|g| {
-                        cmp::max(ARC_RADIUS, g.entry_height) + g.height_below_entry() + self.spacing
+                        cmp::max(ARC_RADIUS, g.entry_height)
+                            + g.height_below_entry()
+                            + Self::SPACING
                     })
                     .sum::<i64>()
-                - self.spacing
+                - Self::SPACING
         };
         NodeGeometry {
             entry_height,
@@ -996,12 +992,13 @@ struct MultiChoiceLayout {
 #[derive(Debug, Clone)]
 pub struct MultiChoice<N> {
     columns: Vec<Vec<N>>,
-    spacing: i64,
-    column_spacing: i64,
     attributes: HashMap<String, String>,
 }
 
 impl<N> MultiChoice<N> {
+    const SPACING: i64 = 10;
+    const COLUMN_SPACING: i64 = ARC_RADIUS;
+
     /// Create a `MultiChoice` from ordered columns of alternatives.
     ///
     /// Empty columns are ignored for layout. With zero or one non-empty column,
@@ -1099,9 +1096,10 @@ impl<N> MultiChoice<N> {
                     let inner_padding = Self::choice_inner_padding(column_geometries.len());
                     inner_padding + max_child_width + inner_padding
                 };
-                let height = Self::choice_column_height(column_geometries, self.spacing);
+                let height = Self::choice_column_height(column_geometries, Self::SPACING);
                 let entry_height = column_geometries[0].entry_height;
-                let child_y_offsets = Self::choice_child_y_offsets(column_geometries, self.spacing);
+                let child_y_offsets =
+                    Self::choice_child_y_offsets(column_geometries, Self::SPACING);
                 columns.push(MultiChoiceColumnLayout {
                     flat_start,
                     flat_end,
@@ -1113,7 +1111,7 @@ impl<N> MultiChoice<N> {
                     max_child_width,
                     child_y_offsets,
                 });
-                x_offset += width + self.column_spacing;
+                x_offset += width + Self::COLUMN_SPACING;
             }
             flat_start = flat_end;
         }
@@ -1522,8 +1520,6 @@ impl<N> Default for MultiChoice<N> {
     fn default() -> Self {
         Self {
             columns: Vec::default(),
-            spacing: 10,
-            column_spacing: ARC_RADIUS,
             attributes: HashMap::default(),
         }
     }

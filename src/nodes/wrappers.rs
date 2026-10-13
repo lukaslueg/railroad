@@ -862,11 +862,12 @@ where
 pub struct Repeat<I, R> {
     inner: I,
     repeat: R,
-    spacing: i64,
     attributes: HashMap<String, String>,
 }
 
 impl<I, R> Repeat<I, R> {
+    const SPACING: i64 = 10;
+
     /// Create a `Repeat` that loops `inner` via the `repeat` node on the return path.
     ///
     /// # Example
@@ -881,7 +882,6 @@ impl<I, R> Repeat<I, R> {
         Self {
             inner,
             repeat,
-            spacing: 10,
             attributes: HashMap::default(),
         }
     }
@@ -902,7 +902,7 @@ where
     fn height_between_entries(&self) -> i64 {
         cmp::max(
             ARC_RADIUS * 2,
-            self.inner.height_below_entry() + self.spacing + self.repeat.entry_height(),
+            self.inner.height_below_entry() + Self::SPACING + self.repeat.entry_height(),
         )
     }
 
@@ -920,7 +920,7 @@ where
         let repeat_geo = &geo.children[1];
         let height_between = cmp::max(
             ARC_RADIUS * 2,
-            inner_geo.height_below_entry() + self.spacing + repeat_geo.entry_height,
+            inner_geo.height_below_entry() + Self::SPACING + repeat_geo.entry_height,
         );
 
         backend.push_path(
@@ -970,7 +970,6 @@ where
         Self {
             inner: Default::default(),
             repeat: Default::default(),
-            spacing: 10,
             attributes: HashMap::default(),
         }
     }
@@ -1047,7 +1046,7 @@ where
         let repeat_geo = self.repeat.compute_geometry();
         let height_between = cmp::max(
             ARC_RADIUS * 2,
-            inner_geo.height_below_entry() + self.spacing + repeat_geo.entry_height,
+            inner_geo.height_below_entry() + Self::SPACING + repeat_geo.entry_height,
         );
         let entry_height = svg::PathData::PADDING + inner_geo.entry_height;
         let height = entry_height
@@ -1100,8 +1099,6 @@ where
 pub struct LabeledBox<T, U> {
     inner: T,
     label: U,
-    spacing: i64,
-    padding: i64,
     attributes: HashMap<String, String>,
 }
 
@@ -1115,6 +1112,9 @@ impl<T> LabeledBox<T, Empty> {
 }
 
 impl<T, U> LabeledBox<T, U> {
+    const SPACING: i64 = 8;
+    const PADDING: i64 = 8;
+
     /// Construct a `LabeledBox` that draws a border around `inner` and places
     /// `label` above it inside the box.
     ///
@@ -1132,8 +1132,6 @@ impl<T, U> LabeledBox<T, U> {
         Self {
             inner,
             label,
-            spacing: 8,
-            padding: 8,
             attributes: HashMap::default(),
         }
     }
@@ -1155,8 +1153,6 @@ where
         Self {
             inner: Default::default(),
             label: Default::default(),
-            spacing: 8,
-            padding: 8,
             attributes: HashMap::default(),
         }
     }
@@ -1169,7 +1165,7 @@ where
 {
     fn spacing(&self) -> i64 {
         if self.label.height() > 0 {
-            self.spacing
+            Self::SPACING
         } else {
             0
         }
@@ -1177,7 +1173,7 @@ where
 
     fn padding(&self) -> i64 {
         if self.label.height() + self.inner.height() + self.label.width() + self.inner.width() > 0 {
-            self.padding
+            Self::PADDING
         } else {
             0
         }
@@ -1196,12 +1192,12 @@ where
         let label_geo = &geo.children[1];
         let padding = if label_geo.height + inner_geo.height + label_geo.width + inner_geo.width > 0
         {
-            self.padding
+            Self::PADDING
         } else {
             0
         };
         let spacing = if label_geo.height > 0 {
-            self.spacing
+            Self::SPACING
         } else {
             0
         };
@@ -1278,12 +1274,12 @@ where
         let label_geo = self.label.compute_geometry();
         let padding = if label_geo.height + inner_geo.height + label_geo.width + inner_geo.width > 0
         {
-            self.padding
+            Self::PADDING
         } else {
             0
         };
         let spacing = if label_geo.height > 0 {
-            self.spacing
+            Self::SPACING
         } else {
             0
         };

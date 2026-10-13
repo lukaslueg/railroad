@@ -12,11 +12,12 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct VerticalGrid<N> {
     children: Vec<N>,
-    spacing: i64,
     attributes: HashMap<String, String>,
 }
 
 impl<N> VerticalGrid<N> {
+    const SPACING: i64 = crate::ARC_RADIUS;
+
     /// Create a `VerticalGrid` containing `children`, laid out top-to-bottom.
     ///
     /// Children are spaced by a fixed amount. They are not connected by
@@ -63,7 +64,7 @@ impl<N> VerticalGrid<N> {
         let mut running_y = y;
         for (child, child_geo) in self.children.iter().zip(geo.children.iter()) {
             backend.push_child(child, x, running_y, h_dir, child_geo)?;
-            running_y += child_geo.height + self.spacing;
+            running_y += child_geo.height + Self::SPACING;
         }
         Ok(())
     }
@@ -73,7 +74,6 @@ impl<N> Default for VerticalGrid<N> {
     fn default() -> Self {
         Self {
             children: Vec::default(),
-            spacing: crate::ARC_RADIUS,
             attributes: HashMap::default(),
         }
     }
@@ -92,7 +92,7 @@ impl<N: Node> Node for VerticalGrid<N> {
 
     fn height(&self) -> i64 {
         self.children.iter().map(Node::height).sum::<i64>()
-            + ((cmp::max(1, i64::try_from(self.children.len()).unwrap()) - 1) * self.spacing)
+            + ((cmp::max(1, i64::try_from(self.children.len()).unwrap()) - 1) * Self::SPACING)
     }
 
     fn width(&self) -> i64 {
@@ -106,7 +106,7 @@ impl<N: Node> Node for VerticalGrid<N> {
         let mut running_y = y;
         for child in &self.children {
             g.push(child.draw(x, running_y, h_dir));
-            running_y += child.height() + self.spacing;
+            running_y += child.height() + Self::SPACING;
         }
         g.debug("VerticalGrid", x, y, self)
     }
@@ -116,7 +116,7 @@ impl<N: Node> Node for VerticalGrid<N> {
             self.children.iter().map(|c| c.compute_geometry()).collect();
         let total_height: i64 = children.iter().map(|g| g.height).sum();
         let n = cmp::max(1, i64::try_from(children.len()).unwrap());
-        let height = total_height + (n - 1) * self.spacing;
+        let height = total_height + (n - 1) * Self::SPACING;
         let width = children.iter().map(|g| g.width).max().unwrap_or(0);
         NodeGeometry {
             entry_height: 0,
@@ -169,11 +169,12 @@ impl<N: Node> Node for VerticalGrid<N> {
 #[derive(Debug, Clone)]
 pub struct HorizontalGrid<N> {
     children: Vec<N>,
-    spacing: i64,
     attributes: HashMap<String, String>,
 }
 
 impl<N> HorizontalGrid<N> {
+    const SPACING: i64 = crate::ARC_RADIUS;
+
     /// Create a `HorizontalGrid` containing `children`, laid out left-to-right.
     ///
     /// Children are spaced by a fixed amount. They are not connected by
@@ -220,7 +221,7 @@ impl<N> HorizontalGrid<N> {
         let mut running_x = x;
         for (child, child_geo) in self.children.iter().zip(geo.children.iter()) {
             backend.push_child(child, running_x, y, h_dir, child_geo)?;
-            running_x += child_geo.width + self.spacing;
+            running_x += child_geo.width + Self::SPACING;
         }
         Ok(())
     }
@@ -230,7 +231,6 @@ impl<N> Default for HorizontalGrid<N> {
     fn default() -> Self {
         Self {
             children: Vec::default(),
-            spacing: crate::ARC_RADIUS,
             attributes: HashMap::default(),
         }
     }
@@ -256,7 +256,7 @@ where
 
     fn width(&self) -> i64 {
         self.children.iter().map(Node::width).sum::<i64>()
-            + ((cmp::max(1, i64::try_from(self.children.len()).unwrap()) - 1) * self.spacing)
+            + ((cmp::max(1, i64::try_from(self.children.len()).unwrap()) - 1) * Self::SPACING)
     }
 
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> crate::svg::Element {
@@ -266,7 +266,7 @@ where
         let mut running_x = x;
         for child in &self.children {
             g.push(child.draw(running_x, y, h_dir));
-            running_x += child.width() + self.spacing;
+            running_x += child.width() + Self::SPACING;
         }
         g.debug("HorizontalGrid", x, y, self)
     }
@@ -277,7 +277,7 @@ where
         let height = children.iter().map(|g| g.height).max().unwrap_or(0);
         let total_width: i64 = children.iter().map(|g| g.width).sum();
         let n = cmp::max(1, i64::try_from(children.len()).unwrap());
-        let width = total_width + (n - 1) * self.spacing;
+        let width = total_width + (n - 1) * Self::SPACING;
         NodeGeometry {
             entry_height: 0,
             height,

@@ -1644,13 +1644,11 @@ pub struct Diagram<N> {
     root: N,
     extra_attributes: HashMap<String, String>,
     extra_elements: Vec<svg::Element>,
-    left_padding: i64,
-    right_padding: i64,
-    top_padding: i64,
-    bottom_padding: i64,
 }
 
 impl<N: Node> Diagram<N> {
+    const PADDING: i64 = 10;
+
     /// Create a diagram with the given root node and no stylesheet.
     ///
     /// ```
@@ -1669,10 +1667,6 @@ impl<N: Node> Diagram<N> {
             root,
             extra_attributes: HashMap::default(),
             extra_elements: Vec::default(),
-            left_padding: 10,
-            right_padding: 10,
-            top_padding: 10,
-            bottom_padding: 10,
         }
     }
 
@@ -1757,10 +1751,6 @@ where
             root: Default::default(),
             extra_attributes: HashMap::default(),
             extra_elements: Vec::default(),
-            left_padding: 10,
-            right_padding: 10,
-            top_padding: 10,
-            bottom_padding: 10,
         }
     }
 }
@@ -1774,11 +1764,11 @@ where
     }
 
     fn height(&self) -> i64 {
-        self.top_padding + self.root.height() + self.bottom_padding
+        Self::PADDING + self.root.height() + Self::PADDING
     }
 
     fn width(&self) -> i64 {
-        self.left_padding + self.root.width() + self.right_padding
+        Self::PADDING + self.root.width() + Self::PADDING
     }
 
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
@@ -1788,8 +1778,8 @@ where
 
     fn compute_geometry(&self) -> NodeGeometry {
         let root_geo = self.root.compute_geometry();
-        let height = self.top_padding + root_geo.height + self.bottom_padding;
-        let width = self.left_padding + root_geo.width + self.right_padding;
+        let height = Self::PADDING + root_geo.height + Self::PADDING;
+        let width = Self::PADDING + root_geo.width + Self::PADDING;
         NodeGeometry {
             entry_height: 0,
             height,
@@ -1820,8 +1810,8 @@ where
                 .set("class", "railroad_canvas"),
         )
         .add(self.root.draw_with_geometry(
-            x + self.left_padding,
-            y + self.top_padding,
+            x + Self::PADDING,
+            y + Self::PADDING,
             h_dir,
             &geo.children[0],
         ))
@@ -1857,8 +1847,8 @@ where
 
         self.root.render_with_geometry(
             out,
-            x + self.left_padding,
-            y + self.top_padding,
+            x + Self::PADDING,
+            y + Self::PADDING,
             h_dir,
             &geo.children[0],
         )?;
@@ -2042,7 +2032,7 @@ mod tests {
             Box::new(SimpleEnd),
         ]);
         assert_eq!(
-            "Sequence { children: [Node { entry_height: 5, height: 10, width: 15 }, Node { entry_height: 5, height: 10, width: 15 }], spacing: 10 }",
+            "Sequence { children: [Node { entry_height: 5, height: 10, width: 15 }, Node { entry_height: 5, height: 10, width: 15 }] }",
             format!("{:?}", s)
         );
         assert_eq!(
