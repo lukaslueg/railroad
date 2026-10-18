@@ -261,6 +261,91 @@ impl NodeGeometry {
 /// Composite nodes can override [`Node::compute_geometry`],
 /// [`Node::draw_with_geometry`], and [`Node::render_with_geometry`] to compute
 /// child geometry once and reuse it during rendering.
+///
+/// ## Example
+///
+/// `RedFrame` wraps any child node in a red border ten units thick. The child
+/// moves right and down by ten units, so the frame adds twenty units to both its
+/// width and height. Its connecting path moves down with the child:
+/// `entry_height() = 10 + child.entry_height()`.
+///
+/// ```rust
+/// use railroad::{Diagram, Node, Stylesheet, Terminal, svg};
+///
+/// struct RedFrame<N> {
+///     child: N,
+/// }
+///
+/// impl<N> RedFrame<N> {
+///     const HALF_BORDER: i64 = 5;
+///     const BORDER: i64 = Self::HALF_BORDER * 2;
+/// }
+///
+/// impl<N: Node> Node for RedFrame<N> {
+///     fn entry_height(&self) -> i64 {
+///         // The connecting path moves down with the child-node.
+///         // An outer `Node` (if it exists) might therefore decide to shift
+///         // this Node up by as much, to keep the connecting path straight.
+///         Self::BORDER + self.child.entry_height()
+///     }
+///
+///     fn height(&self) -> i64 {
+///         // Account for the upper- and lower-portion of the frame
+///         Self::BORDER + self.child.height() + Self::BORDER
+///     }
+///
+///     fn width(&self) -> i64 {
+///         // Account for the left and right portion of the frame
+///         Self::BORDER + self.child.width() + Self::BORDER
+///     }
+///
+///     fn draw(&self, x: i64, y: i64, h_dir: svg::HDir) -> svg::Element {
+///         // SVG centers a stroke on the rectangle's outline. Inset that
+///         // outline by half the border thickness to keep the stroke in bounds.
+///         // The inline style gives the frame its red stroke even when the
+///         // diagram's stylesheet styles rectangles; you'd normally use
+///         // a CSS-class for this.
+///         let frame = svg::Element::new("rect")
+///             .set("x", &(x + Self::HALF_BORDER))
+///             .set("y", &(y + Self::HALF_BORDER))
+///             .set("width", &(self.width() - Self::BORDER))
+///             .set("height", &(self.height() - Self::BORDER))
+///             .set("style", &format!("fill: none; stroke: red; stroke-width: {}", Self::BORDER));
+///
+///         // Bridge the border on each side at the child's connecting height.
+///         let entry_y = y + self.entry_height();
+///         let rails = svg::PathData::new(h_dir)
+///             .move_to(x, entry_y)
+///             .horizontal(Self::BORDER)
+///             .move_to(x + Self::BORDER + self.child.width(), entry_y)
+///             .horizontal(Self::BORDER)
+///             .into_path();
+///
+///         // Put all elements of this Node into a common group element.
+///         // We'd normally set the `class` of this element, so stylesheets
+///         // can precisely select their elements ("a rect inside a group
+///         // of class `redframe`...").
+///         svg::Element::new("g")
+///             .add(frame)
+///             .add(rails)  // Draw the connecting path over the frame
+///             .add(self.child.draw(x + Self::BORDER, y + Self::BORDER, h_dir))
+///     }
+/// }
+///
+/// // Some inner `Node`
+/// let child = Terminal::new("item".to_owned());
+/// let child_entry_height = child.entry_height();
+/// let child_width = child.width();
+/// let child_height = child.height();
+///
+/// let node = RedFrame { child };
+/// let border = RedFrame::<()>::BORDER;
+/// assert_eq!(node.entry_height(), child_entry_height + border);
+/// assert_eq!(node.width(), child_width + 2 * border);
+/// assert_eq!(node.height(), child_height + 2 * border);
+/// let diagram = Diagram::new_with_stylesheet(node, &Stylesheet::Light);
+/// assert!(diagram.to_string().starts_with("<svg"))
+/// ```
 pub trait Node {
     /// The vertical distance from the node's top edge to its connecting path.
     ///
