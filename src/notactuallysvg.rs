@@ -126,17 +126,17 @@ pub enum Arc {
     WestToSouth,
 }
 
-/// Selects the direction in which arrows on positive-direction horizontal
-/// lines point.
+/// Selects the horizontal reading direction and the orientation of rail arrowheads.
 ///
-/// `LTR` (left-to-right) is the default. `RTL` is used
-/// for the return arc inside [`crate::Repeat`].
+/// In `LTR`, horizontal and vertical arrowheads follow the direction in which
+/// segments are drawn. In `RTL`, both are reversed. `RTL` is used for the return
+/// path inside [`crate::Repeat`].
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum HDir {
-    /// Arrows point rightward (the default).
+    /// Read left-to-right; arrowheads follow the segment direction (the default).
     #[default]
     LTR,
-    /// Arrows point leftward.
+    /// Read right-to-left; arrowheads oppose the segment direction.
     RTL,
 }
 
@@ -468,7 +468,7 @@ impl PathData {
     /// to its path segment.
     pub const PADDING: i64 = 5;
 
-    /// Construct an empty `PathData` with the given horizontal direction.
+    /// Construct an empty `PathData` with the given reading direction.
     #[must_use]
     pub fn new(h_dir: HDir) -> Self {
         Self {
@@ -568,26 +568,25 @@ impl PathData {
     /// Draw a vertical segment of height `h` from the cursor's current position.
     ///
     /// If `h` is greater than 50 or less than -50, add an arrowhead near the
-    /// midpoint, pointing downward for positive `h` and upward for negative `h`.
+    /// midpoint. In [`HDir::LTR`], it points downward for positive `h` and upward
+    /// for negative `h`. In [`HDir::RTL`], these directions are reversed.
     #[must_use]
     pub fn vertical(mut self, h: i64) -> Self {
         write!(self.text, " v {h}").unwrap();
-        // Add an arrow for long stretches
-        if h > 50 {
-            self.move_rel(0, -(h / 2 - 3))
-                .line_rel(-Self::PADDING, -Self::PADDING)
-                .move_rel(Self::PADDING * 2, 0)
-                .line_rel(-Self::PADDING, Self::PADDING)
-                .move_rel(0, h / 2 - 3)
-        } else if h < -50 {
-            self.move_rel(0, -(h / 2 - 3))
-                .line_rel(-Self::PADDING, Self::PADDING)
-                .move_rel(Self::PADDING * 2, 0)
-                .line_rel(-Self::PADDING, -Self::PADDING)
-                .move_rel(0, h / 2 - 3)
-        } else {
-            self
+        if (-50..=50).contains(&h) {
+            return self;
         }
+        let points_down = (h > 0) == (self.h_dir == HDir::LTR);
+        let arrow_y = if points_down {
+            -Self::PADDING
+        } else {
+            Self::PADDING
+        };
+        self.move_rel(0, -(h / 2 - 3))
+            .line_rel(-Self::PADDING, arrow_y)
+            .move_rel(Self::PADDING * 2, 0)
+            .line_rel(-Self::PADDING, -arrow_y)
+            .move_rel(0, h / 2 - 3)
     }
 
     /// Draw a quarter-circle arc of the given `radius` in the given direction.

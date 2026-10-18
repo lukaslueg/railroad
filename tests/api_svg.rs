@@ -87,6 +87,51 @@ fn path_data_tracks_direction_and_arrowhead_shape() {
 }
 
 #[test]
+fn vertical_arrowheads_follow_segment_sign_and_reading_direction() {
+    for (direction, height, expected) in [
+        (
+            svg::HDir::LTR,
+            51,
+            " M 0 0 v 51 m 0 -22 l -5 -5 m 10 0 l -5 5 m 0 22 h 7",
+        ),
+        (
+            svg::HDir::RTL,
+            51,
+            " M 0 0 v 51 m 0 -22 l -5 5 m 10 0 l -5 -5 m 0 22 h 7",
+        ),
+        (
+            svg::HDir::LTR,
+            -51,
+            " M 0 0 v -51 m 0 28 l -5 5 m 10 0 l -5 -5 m 0 -28 h 7",
+        ),
+        (
+            svg::HDir::RTL,
+            -51,
+            " M 0 0 v -51 m 0 28 l -5 -5 m 10 0 l -5 5 m 0 -28 h 7",
+        ),
+    ] {
+        let path = svg::PathData::new(direction)
+            .move_to(0, 0)
+            .vertical(height)
+            .horizontal(7)
+            .to_string();
+        assert_eq!(path, expected, "{direction:?}, height {height}");
+    }
+}
+
+#[test]
+fn short_vertical_segments_have_no_arrowheads_in_either_direction() {
+    for direction in [svg::HDir::LTR, svg::HDir::RTL] {
+        for height in [-50, -49, 0, 49, 50] {
+            assert_eq!(
+                svg::PathData::new(direction).vertical(height).to_string(),
+                format!(" v {height}"),
+            );
+        }
+    }
+}
+
+#[test]
 fn element_serializes_children_text_and_siblings() {
     let xml = svg::Element::new("g")
         .set::<str, str>("id", "root")

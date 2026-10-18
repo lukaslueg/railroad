@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 
 - Add `Subsequence` to select one or more child nodes while preserving their order
+- Fix vertical rail arrowheads pointing the wrong way in right-to-left nodes, including nested `Repeat` return paths
 
 ## [0.3.10] - 2026-10-07
 
