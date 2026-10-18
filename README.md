@@ -695,3 +695,8 @@ Choose a built-in [theme](https://docs.rs/railroad/latest/railroad/enum.Styleshe
 
 ### Ayu
 ![Ayu](examples/theme_ayu.jpg)
+
+
+---
+
+This library took strong inspiration from Tab Atkins-Bittner's `railroad-diagrams`.
