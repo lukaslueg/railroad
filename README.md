@@ -96,6 +96,39 @@ let node = Sequence::<Box<dyn Node>>::new(vec![
 
 </details>
 
+### Ordered selection — `Subsequence`
+
+A simplified XML Schema-style duration: `PT` followed by one or more hours (`H`), minutes (`M`), and seconds (`S`), in order. Here, `digits` means one or more decimal digits. Accepts `PT1H`, `PT1H3S`, and `PT1H2M3S`; rejects `PT` and `PT3S1H`.
+
+![A simplified XML Schema-style duration: `PT` followed by one or more hours (`H`), minutes (`M`), and seconds (`S`), in order. Here, `digits` means one or more decimal digits. Accepts `PT1H`, `PT1H3S`, and `PT1H2M3S`; rejects `PT` and `PT3S1H`.](examples/vocabulary/subsequence.svg)
+
+<details>
+<summary>Rust</summary>
+
+```rust
+use railroad::*;
+
+let node = Sequence::<Box<dyn Node>>::new(vec![
+    Box::new(Terminal::new("PT".to_owned())),
+    Box::new(Subsequence::new(vec![
+        Sequence::<Box<dyn Node>>::new(vec![
+            Box::new(NonTerminal::new("digits".to_owned())),
+            Box::new(Terminal::new("H".to_owned())),
+        ]),
+        Sequence::<Box<dyn Node>>::new(vec![
+            Box::new(NonTerminal::new("digits".to_owned())),
+            Box::new(Terminal::new("M".to_owned())),
+        ]),
+        Sequence::<Box<dyn Node>>::new(vec![
+            Box::new(NonTerminal::new("digits".to_owned())),
+            Box::new(Terminal::new("S".to_owned())),
+        ]),
+    ])),
+]);
+```
+
+</details>
+
 ### Alternatives — `Choice`
 
 Choose exactly one alternative: `true` or `false`.

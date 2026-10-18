@@ -450,6 +450,42 @@ fn main() {
     dia!(seq!(dbg!(20, 30, 10), dbg!(20, 50, 50), dbg!(30, 50, 70)));
     hr!();
 
+    // Subsequences, including narrow, empty, asymmetric, and nested children.
+    f.write_all(b"<h2>Subsequence</h2><p>No children: zero dimensions, with the surrounding endpoints connected directly.</p>")
+        .unwrap();
+    dia!(Subsequence::<Empty>::default());
+    f.write_all(
+        b"<p>One Empty child: the child's zero dimensions are preserved, with no bypasses.</p>",
+    )
+    .unwrap();
+    dia!(Subsequence::new(vec![Empty]));
+    f.write_all(b"<p>Two Empty children: the routing still reserves enough space for the upper and lower bends.</p>")
+        .unwrap();
+    dia!(Subsequence::new(vec![Empty, Empty]));
+    f.write_all(b"<p>Narrow children with unequal entry heights and depths: the bypasses stay clear of the red child rectangles.</p>")
+        .unwrap();
+    dia!(Subsequence::new(vec![
+        dbg!(0, 1, 1),
+        dbg!(60, 61, 1),
+        dbg!(1, 80, 1),
+        dbg!(0, 1, 100)
+    ]));
+    f.write_all(b"<p>Composition with Empty, Optional, Choice, and a nested Subsequence.</p>")
+        .unwrap();
+    dia!(Subsequence::<Box<dyn Node>>::new(vec![
+        Box::new(Empty),
+        Box::new(opt!(term!("optional"))),
+        Box::new(choice!(term!("A"), term!("B"))),
+        Box::new(Subsequence::new(vec![term!("C"), term!("D")])),
+    ]));
+    f.write_all(b"<p>Repeat: the subsequence on the return path is traversed right-to-left. Its upper and lower bypass arrowheads should point left.</p>")
+        .unwrap();
+    dia!(rpt!(
+        term!("item"),
+        Subsequence::new(vec![term!("option A"), term!("option B")])
+    ));
+    hr!();
+
     // Choices
     dia!(choice!());
     dia!(choice!(Empty));

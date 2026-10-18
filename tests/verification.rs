@@ -111,6 +111,14 @@ verify!(
 verify!(escape_term, dia!(term!("Foo<bar>")));
 verify!(simple_choice, dia!(choice!(term!("Foo"), term!("Bar"))));
 verify!(
+    subsequence,
+    dia!(railroad::Subsequence::new(vec![
+        term!("A"),
+        term!("B"),
+        term!("C"),
+    ]))
+);
+verify!(
     simple_multichoice,
     dia!(railroad::MultiChoice::new(vec![
         vec![

@@ -72,7 +72,7 @@ pub use crate::notactuallysvg as svg;
 use crate::svg::HDir;
 mod nodes;
 pub use crate::nodes::annotations::Annotation;
-pub use crate::nodes::containers::{Choice, MultiChoice, Sequence, Stack};
+pub use crate::nodes::containers::{Choice, MultiChoice, Sequence, Stack, Subsequence};
 pub use crate::nodes::grids::{HorizontalGrid, VerticalGrid};
 pub use crate::nodes::text::{Comment, NonTerminal, Terminal};
 pub use crate::nodes::wrappers::{

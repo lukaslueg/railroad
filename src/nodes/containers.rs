@@ -11,7 +11,8 @@ use crate::{
 
 /// A horizontal group of elements, connected from left to right.
 ///
-/// See [`Stack`] for a connected vertical sequence.
+/// See [`Stack`] for a connected vertical sequence, or [`Subsequence`] for
+/// a sequence whose elements can be skipped individually.
 #[derive(Debug, Clone)]
 pub struct Sequence<N> {
     children: Vec<N>,
@@ -211,6 +212,241 @@ where
         geo: &NodeGeometry,
     ) -> fmt::Result {
         render_class_group_with_geometry(out, "sequence", "Sequence", x, y, geo, |backend| {
+            self.emit_with_geometry(backend, x, y, h_dir, geo)
+        })
+    }
+}
+
+/// A horizontal sequence with paths through every subsequence of children.
+///
+/// Children can be skipped individually, but their relative order is preserved
+/// and every route traverses at least one child. For `[A, B, C]`, the routes are
+/// `A`, `B`, `C`, `AB`, `AC`, `BC`, and `ABC`.
+#[derive(Debug, Clone)]
+pub struct Subsequence<N> {
+    children: Vec<N>,
+}
+
+impl<N> Subsequence<N> {
+    const SPACING: i64 = 10;
+
+    /// Create a subsequence from children in their traversal order.
+    ///
+    /// ```rust
+    /// use railroad::*;
+    ///
+    /// let mut seq: Subsequence<Box<dyn Node>> = Subsequence::default();
+    /// seq.push(Box::new(Terminal::new("A".to_owned())))
+    ///    .push(Box::new(NonTerminal::new("B".to_owned())))
+    ///    .push(Box::new(Terminal::new("C".to_owned())));
+    /// assert!(Diagram::new(seq).to_string().contains("subsequence"));
+    /// ```
+    #[must_use]
+    pub fn new(children: Vec<N>) -> Self {
+        Self { children }
+    }
+
+    /// Append a child and return `&mut self` for chaining.
+    pub fn push(&mut self, child: N) -> &mut Self {
+        self.children.push(child);
+        self
+    }
+
+    /// Unwrap this sequence, returning the children in order.
+    #[must_use]
+    pub fn into_inner(self) -> Vec<N> {
+        self.children
+    }
+
+    fn routing_width(child: &NodeGeometry) -> i64 {
+        cmp::max(child.width, ARC_RADIUS * 2)
+    }
+
+    fn bypass_depth(child: &NodeGeometry) -> i64 {
+        cmp::max(ARC_RADIUS * 2, child.height_below_entry() + Self::SPACING)
+    }
+
+    fn emit_with_geometry<B: RenderBackend>(
+        &self,
+        backend: &mut B,
+        x: i64,
+        y: i64,
+        h_dir: HDir,
+        geo: &NodeGeometry,
+    ) -> fmt::Result
+    where
+        N: Node,
+    {
+        if self.children.len() <= 1 {
+            if let Some(child) = self.children.first() {
+                backend.push_child(child, x, y, h_dir, &geo.children[0])?;
+            }
+            return Ok(());
+        }
+
+        let radius = ARC_RADIUS;
+        let baseline = y + geo.entry_height;
+        let upper_y = y + svg::PathData::PADDING;
+        // The upper rail skips a prefix. It ends at the last child's entry,
+        // rather than providing a route around the entire sequence.
+        backend.push_path(
+            svg::PathData::new(h_dir)
+                .move_to(x, baseline)
+                .arc(radius, svg::Arc::WestToNorth)
+                .vertical(upper_y - baseline + radius * 2)
+                .arc(radius, svg::Arc::SouthToEast),
+        )?;
+
+        let mut branch_x = x;
+        for (index, (child, child_geo)) in self.children.iter().zip(&geo.children).enumerate() {
+            let routing_width = Self::routing_width(child_geo);
+            let child_x = branch_x + radius * 2;
+            let end_x = child_x + routing_width + if index == 0 { 0 } else { radius * 2 };
+
+            if index + 1 < geo.children.len() {
+                // Split at each downward branch so arrowheads are centered
+                // between junctions rather than across the entire upper rail.
+                let start_x = if index == 0 { child_x } else { branch_x };
+                backend.push_path(
+                    svg::PathData::new(h_dir)
+                        .move_to(start_x, upper_y)
+                        .horizontal(end_x - start_x),
+                )?;
+            }
+
+            backend.push_path(
+                svg::PathData::new(h_dir)
+                    .move_to(branch_x, baseline)
+                    .horizontal(radius * 2),
+            )?;
+            backend.push_child(
+                child,
+                child_x,
+                baseline - child_geo.entry_height,
+                h_dir,
+                child_geo,
+            )?;
+            backend.push_path(
+                svg::PathData::new(h_dir)
+                    .move_to(child_x + child_geo.width, baseline)
+                    .horizontal(end_x - child_x - child_geo.width),
+            )?;
+
+            if index > 0 {
+                // This joins AFTER the lower bypass branches off. Arriving
+                // from the upper rail therefore requires taking this child.
+                backend.push_path(
+                    svg::PathData::new(h_dir)
+                        .move_to(branch_x, upper_y)
+                        .arc(radius, svg::Arc::WestToSouth)
+                        .vertical(baseline - upper_y - radius * 2)
+                        .arc(radius, svg::Arc::NorthToEast),
+                )?;
+
+                let depth = Self::bypass_depth(child_geo);
+                backend.push_path(
+                    svg::PathData::new(h_dir)
+                        .move_to(branch_x, baseline)
+                        .arc(radius, svg::Arc::WestToSouth)
+                        .vertical(depth - radius * 2)
+                        .arc(radius, svg::Arc::NorthToEast)
+                        .horizontal(routing_width)
+                        .arc(radius, svg::Arc::WestToNorth)
+                        .vertical(radius * 2 - depth)
+                        .arc(radius, svg::Arc::SouthToEast),
+                )?;
+            }
+            branch_x = end_x;
+        }
+        Ok(())
+    }
+}
+
+impl<N> Default for Subsequence<N> {
+    fn default() -> Self {
+        Self::new(Vec::new())
+    }
+}
+
+impl<N> iter::FromIterator<N> for Subsequence<N> {
+    fn from_iter<T: IntoIterator<Item = N>>(iter: T) -> Self {
+        Self::new(iter.into_iter().collect())
+    }
+}
+
+impl<N: Node> Node for Subsequence<N> {
+    fn entry_height(&self) -> i64 {
+        self.compute_geometry().entry_height
+    }
+
+    fn height(&self) -> i64 {
+        self.compute_geometry().height
+    }
+
+    fn width(&self) -> i64 {
+        self.compute_geometry().width
+    }
+
+    fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
+        self.draw_with_geometry(x, y, h_dir, &self.compute_geometry())
+    }
+
+    fn compute_geometry(&self) -> NodeGeometry {
+        let children: Vec<_> = self.children.iter().map(Node::compute_geometry).collect();
+        if children.len() <= 1 {
+            return NodeGeometry {
+                entry_height: children.first().map_or(0, |child| child.entry_height),
+                height: children.first().map_or(0, |child| child.height),
+                width: children.first().map_or(0, |child| child.width),
+                children,
+            };
+        }
+
+        let entry_height = svg::PathData::PADDING
+            + cmp::max(
+                ARC_RADIUS * 2,
+                children
+                    .iter()
+                    .map(|child| child.entry_height)
+                    .max()
+                    .unwrap()
+                    + Self::SPACING,
+            );
+        let height_below = cmp::max(
+            children[0].height_below_entry(),
+            children
+                .iter()
+                .skip(1)
+                .map(Self::bypass_depth)
+                .max()
+                .unwrap()
+                + svg::PathData::PADDING,
+        );
+        let width = children.iter().map(Self::routing_width).sum::<i64>()
+            + (i64::try_from(children.len()).unwrap() * 4 - 2) * ARC_RADIUS;
+        NodeGeometry {
+            entry_height,
+            height: entry_height + height_below,
+            width,
+            children,
+        }
+    }
+
+    fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, geo: &NodeGeometry) -> svg::Element {
+        draw_class_group_with_geometry("subsequence", "Subsequence", x, y, geo, |backend| {
+            self.emit_with_geometry(backend, x, y, h_dir, geo)
+        })
+    }
+
+    fn render_with_geometry(
+        &self,
+        out: &mut svg::Renderer<'_>,
+        x: i64,
+        y: i64,
+        h_dir: HDir,
+        geo: &NodeGeometry,
+    ) -> fmt::Result {
+        render_class_group_with_geometry(out, "subsequence", "Subsequence", x, y, geo, |backend| {
             self.emit_with_geometry(backend, x, y, h_dir, geo)
         })
     }

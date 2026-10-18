@@ -1,0 +1,145 @@
+<svg height="78" width="554" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" class="railroad" viewBox="0 0 554 78">
+<style type="text/css">
+svg.railroad {
+background-color: hsl(30, 20%, 95%);
+background-size: 15px 15px;
+background-image: linear-gradient(to right, rgba(30, 30, 30, .05) 1px, transparent 1px),
+		  linear-gradient(to bottom, rgba(30, 30, 30, .05) 1px, transparent 1px);
+}
+
+svg.railroad rect.railroad_canvas {
+stroke-width: 0px;
+fill: none;
+}
+
+svg.railroad path {
+stroke-width: 3px;
+stroke: black;
+fill: none;
+}
+
+svg.railroad .continuation circle,
+svg.railroad .continuation-start circle,
+svg.railroad .continuation-end circle {
+fill: black;
+stroke: none;
+}
+
+svg.railroad .debug {
+stroke-width: 1px;
+stroke: red;
+}
+
+svg.railroad text {
+font: 14px monospace;
+text-anchor: middle;
+}
+
+svg.railroad .nonterminal text {
+font-weight: bold;
+}
+
+svg.railroad text.comment {
+font: italic 12px monospace;
+}
+
+svg.railroad rect,
+svg.railroad .annotation > path.annotation-marker {
+stroke-width: 3px;
+stroke: black;
+fill:hsl(-290, 70%, 90%);
+}
+
+svg.railroad g.labeledbox > rect,
+svg.railroad .annotation > path.annotation-connector {
+stroke-width: 1px;
+stroke: grey;
+stroke-dasharray: 5px;
+fill: rgb(90, 90, 150);
+fill-opacity: .1;
+}
+
+svg.railroad .annotation > path.annotation-connector {
+fill: none;
+}
+
+/* Annotation markers use wavy arrows distinct from rail traversal arrows. */
+
+svg.railroad .annotation > path.annotation-direction {
+stroke-width: 2px;
+stroke: black;
+}
+</style>
+<title>
+A simplified XML Schema-style duration: `PT` followed by one or more hours (`H`), minutes (`M`), and seconds (`S`), in order. Here, `digits` means one or more decimal digits. Accepts `PT1H`, `PT1H3S`, and `PT1H2M3S`; rejects `PT` and `PT3S1H`.</title>
+<rect width="100%" height="100%" class="railroad_canvas"/>
+<g class="sequence">
+<path d=" M 10 39 a 5 5 0 0 1 5 -5 a 5 5 0 0 1 5 5 a 5 5 0 0 1 -5 5 a 5 5 0 0 1 -5 -5 m 10 0 h 5"/>
+<g class="sequence">
+<g class="terminal">
+<rect x="35" y="28" height="22" width="36" rx="10" ry="10"/>
+<text x="53" y="44">
+PT</text>
+</g>
+<g class="subsequence">
+<path d=" M 81 39 a 12 12 0 0 0 12 -12 v 0 a 12 12 0 0 1 12 -12"/>
+<path d=" M 105 15 h 106 m -50 0 l -5 -5 m 0 10 l 5 -5 m 50 0"/>
+<path d=" M 81 39 h 24"/>
+<g class="sequence">
+<g class="nonterminal">
+<rect x="105" y="28" height="22" width="68"/>
+<text x="139" y="44">
+digits</text>
+</g>
+<g class="terminal">
+<rect x="183" y="28" height="22" width="28" rx="10" ry="10"/>
+<text x="197" y="44">
+H</text>
+</g>
+<path d=" M 173 39 h 10"/>
+</g>
+<path d=" M 211 39 h 0"/>
+<path d=" M 211 15 h 154 m -74 0 l -5 -5 m 0 10 l 5 -5 m 74 0"/>
+<path d=" M 211 39 h 24"/>
+<g class="sequence">
+<g class="nonterminal">
+<rect x="235" y="28" height="22" width="68"/>
+<text x="269" y="44">
+digits</text>
+</g>
+<g class="terminal">
+<rect x="313" y="28" height="22" width="28" rx="10" ry="10"/>
+<text x="327" y="44">
+M</text>
+</g>
+<path d=" M 303 39 h 10"/>
+</g>
+<path d=" M 341 39 h 24"/>
+<path d=" M 211 15 a 12 12 0 0 1 12 12 v 0 a 12 12 0 0 0 12 12"/>
+<path d=" M 211 39 a 12 12 0 0 1 12 12 v 0 a 12 12 0 0 0 12 12 h 106 m -50 0 l -5 -5 m 0 10 l 5 -5 m 50 0 a 12 12 0 0 0 12 -12 v 0 a 12 12 0 0 1 12 -12"/>
+<path d=" M 365 39 h 24"/>
+<g class="sequence">
+<g class="nonterminal">
+<rect x="389" y="28" height="22" width="68"/>
+<text x="423" y="44">
+digits</text>
+</g>
+<g class="terminal">
+<rect x="467" y="28" height="22" width="28" rx="10" ry="10"/>
+<text x="481" y="44">
+S</text>
+</g>
+<path d=" M 457 39 h 10"/>
+</g>
+<path d=" M 495 39 h 24"/>
+<path d=" M 365 15 a 12 12 0 0 1 12 12 v 0 a 12 12 0 0 0 12 12"/>
+<path d=" M 365 39 a 12 12 0 0 1 12 12 v 0 a 12 12 0 0 0 12 12 h 106 m -50 0 l -5 -5 m 0 10 l 5 -5 m 50 0 a 12 12 0 0 0 12 -12 v 0 a 12 12 0 0 1 12 -12"/>
+</g>
+<path d=" M 71 39 h 10"/>
+</g>
+<path d=" M 529 39 h 5 a 5 5 0 0 1 5 -5 a 5 5 0 0 1 5 5 a 5 5 0 0 1 -5 5 a 5 5 0 0 1 -5 -5"/>
+<path d=" M 25 39 h 10"/>
+<path d=" M 519 39 h 10"/>
+</g>
+</svg>
+

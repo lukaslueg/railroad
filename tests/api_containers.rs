@@ -1,6 +1,6 @@
 mod common;
 
-use railroad::{Choice, Debug, Diagram, Empty, MultiChoice, Node, Stack, Terminal};
+use railroad::{Choice, Debug, Diagram, Empty, MultiChoice, Node, Stack, Subsequence, Terminal};
 
 use crate::common::boxed;
 
@@ -145,4 +145,21 @@ fn multichoice_empty_and_single_column_match_choice_geometry() {
     assert_eq!(multichoice.entry_height(), choice.entry_height());
     assert_eq!(multichoice.height(), choice.height());
     assert_eq!(multichoice.width(), choice.width());
+}
+
+#[test]
+fn subsequence_empty_and_single_child_geometry() {
+    let empty = Subsequence::<Empty>::default();
+    assert_eq!(
+        (empty.width(), empty.height(), empty.entry_height()),
+        (0, 0, 0)
+    );
+
+    let child = Terminal::new("A".to_owned());
+    let expected = (child.width(), child.height(), child.entry_height());
+    let single = Subsequence::new(vec![child]);
+    assert_eq!(
+        (single.width(), single.height(), single.entry_height()),
+        expected
+    );
 }
