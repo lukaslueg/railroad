@@ -1731,7 +1731,7 @@ pub struct Diagram<N> {
     extra_elements: Vec<svg::Element>,
 }
 
-impl<N: Node> Diagram<N> {
+impl<N> Diagram<N> {
     const PADDING: i64 = 10;
 
     /// Create a diagram with the given root node and no stylesheet.
@@ -1813,17 +1813,19 @@ impl<N: Node> Diagram<N> {
         self
     }
 
+    /// Unwrap this diagram, returning the root node.
+    pub fn into_inner(self) -> N {
+        self.root
+    }
+}
+
+impl<N: Node> Diagram<N> {
     /// Write the diagram's SVG to the given writer.
     ///
     /// # Errors
     /// Returns errors in the underlying writer.
     pub fn write(&self, writer: &mut impl io::Write) -> io::Result<()> {
         writer.write_all(self.to_string().as_bytes())
-    }
-
-    /// Unwrap this diagram, returning the root node.
-    pub fn into_inner(self) -> N {
-        self.root
     }
 }
 
@@ -2117,7 +2119,7 @@ mod tests {
             Box::new(SimpleEnd),
         ]);
         assert_eq!(
-            "Sequence { children: [Node { entry_height: 5, height: 10, width: 15 }, Node { entry_height: 5, height: 10, width: 15 }] }",
+            "Sequence { children: [Node { entry_height: 5, height: 10, width: 15 }, Node { entry_height: 5, height: 10, width: 15 }], attributes: {} }",
             format!("{:?}", s)
         );
         assert_eq!(

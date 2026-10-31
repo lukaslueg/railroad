@@ -256,6 +256,8 @@ fn node_owned_classes_and_debug_attributes_take_precedence() {
                 .attr("class".to_owned())
                 .or_insert("overridden".to_owned());
             assert_eq!(class.as_str(), "overridden");
+            node.attr("data-test".to_owned())
+                .or_insert("a&\"b".to_owned());
             #[cfg(feature = "visual-debug")]
             for key in [
                 "railroad:type",
@@ -270,6 +272,7 @@ fn node_owned_classes_and_debug_attributes_take_precedence() {
             for svg in renderings(&node) {
                 let tag = svg.lines().next().unwrap();
                 assert!(tag.contains(concat!("class=\"", $class, "\"")));
+                assert!(tag.contains("data-test=\"a&amp;&quot;b\""));
                 assert_eq!(tag.matches(" class=").count(), 1);
                 assert!(!svg.contains("overridden"));
                 #[cfg(feature = "visual-debug")]
@@ -291,6 +294,21 @@ fn node_owned_classes_and_debug_attributes_take_precedence() {
     check!(term!("one"), "terminal");
     check!(nonterm!("one"), "nonterminal");
     check!(cmt!("one"), "comment");
+    check!(seq!(term!("one"), term!("two")), "sequence");
+    check!(
+        railroad::Subsequence::new(vec![term!("one"), term!("two")]),
+        "subsequence"
+    );
+    check!(seq!(term!("one")), "sequence");
+    check!(
+        railroad::Subsequence::new(vec![term!("one")]),
+        "subsequence"
+    );
+    check!(railroad::Sequence::<railroad::Empty>::default(), "sequence");
+    check!(
+        railroad::Subsequence::<railroad::Empty>::default(),
+        "subsequence"
+    );
     check!(stck!(term!("one")), "stack");
     check!(choice!(term!("one")), "choice");
     check!(

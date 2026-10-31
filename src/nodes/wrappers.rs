@@ -582,6 +582,11 @@ impl<N> Link<N> {
         self.attributes.entry(key)
     }
 
+    /// Unwrap the inner element.
+    pub fn into_inner(self) -> N {
+        self.inner
+    }
+
     /// Emit the wrapped child once, letting the outer `<a>` wrapper choose the backend.
     fn emit_with_geometry<B: RenderBackend>(
         &self,
@@ -892,6 +897,11 @@ impl<I, R> Repeat<I, R> {
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
     }
+
+    /// Unwrap the inner child node and the repeating element
+    pub fn into_parts(self) -> (I, R) {
+        (self.inner, self.repeat)
+    }
 }
 
 impl<I, R> Repeat<I, R>
@@ -1141,6 +1151,11 @@ impl<T, U> LabeledBox<T, U> {
     /// Attributes set during drawing, including `class`, take precedence over custom values.
     pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
         self.attributes.entry(key)
+    }
+
+    /// Unwrap the inner element and the label
+    pub fn into_parts(self) -> (T, U) {
+        (self.inner, self.label)
     }
 }
 

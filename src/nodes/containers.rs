@@ -5,8 +5,8 @@ use std::{
 };
 
 use crate::{
-    ARC_RADIUS, HDir, Node, NodeGeometry, RenderBackend, draw_class_group_with_geometry,
-    draw_group_with_geometry, render_class_group_with_geometry, render_group_with_geometry, svg,
+    ARC_RADIUS, HDir, Node, NodeGeometry, RenderBackend, draw_group_with_geometry,
+    render_group_with_geometry, svg,
 };
 
 /// A horizontal group of elements, connected from left to right.
@@ -16,6 +16,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct Sequence<N> {
     children: Vec<N>,
+    attributes: HashMap<String, String>,
 }
 
 impl<N> Sequence<N> {
@@ -38,7 +39,10 @@ impl<N> Sequence<N> {
     /// ```
     #[must_use]
     pub fn new(children: Vec<N>) -> Self {
-        Self { children }
+        Self {
+            children,
+            ..Self::default()
+        }
     }
 
     /// Append a child and return `&mut self` for chaining.
@@ -59,6 +63,13 @@ impl<N> Sequence<N> {
     #[must_use]
     pub fn into_inner(self) -> Vec<N> {
         self.children
+    }
+
+    /// Return the entry for `key` in the outer `<g>` element's attributes.
+    ///
+    /// Attributes set during drawing, including `class`, take precedence over custom values.
+    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
+        self.attributes.entry(key)
     }
 
     /// Emit sequence children and their connecting segments in a single shared pass.
@@ -102,6 +113,7 @@ impl<N> Default for Sequence<N> {
     fn default() -> Self {
         Self {
             children: Vec::new(),
+            attributes: HashMap::default(),
         }
     }
 }
@@ -149,7 +161,9 @@ where
     }
 
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
-        let mut g = svg::Element::new("g").set("class", "sequence");
+        let mut g = svg::Element::new("g")
+            .set_all(&self.attributes)
+            .set("class", "sequence");
         let mut running_x = 0;
         for child in &self.children {
             g.push(child.draw(
@@ -198,9 +212,15 @@ where
     }
 
     fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, geo: &NodeGeometry) -> svg::Element {
-        draw_class_group_with_geometry("sequence", "Sequence", x, y, geo, |backend| {
-            self.emit_with_geometry(backend, x, y, h_dir, geo)
-        })
+        draw_group_with_geometry(
+            &self.attributes,
+            "sequence",
+            "Sequence",
+            x,
+            y,
+            geo,
+            |backend| self.emit_with_geometry(backend, x, y, h_dir, geo),
+        )
     }
 
     fn render_with_geometry(
@@ -211,9 +231,16 @@ where
         h_dir: HDir,
         geo: &NodeGeometry,
     ) -> fmt::Result {
-        render_class_group_with_geometry(out, "sequence", "Sequence", x, y, geo, |backend| {
-            self.emit_with_geometry(backend, x, y, h_dir, geo)
-        })
+        render_group_with_geometry(
+            out,
+            &self.attributes,
+            "sequence",
+            "Sequence",
+            x,
+            y,
+            geo,
+            |backend| self.emit_with_geometry(backend, x, y, h_dir, geo),
+        )
     }
 }
 
@@ -225,6 +252,7 @@ where
 #[derive(Debug, Clone)]
 pub struct Subsequence<N> {
     children: Vec<N>,
+    attributes: HashMap<String, String>,
 }
 
 impl<N> Subsequence<N> {
@@ -243,7 +271,10 @@ impl<N> Subsequence<N> {
     /// ```
     #[must_use]
     pub fn new(children: Vec<N>) -> Self {
-        Self { children }
+        Self {
+            children,
+            attributes: HashMap::default(),
+        }
     }
 
     /// Append a child and return `&mut self` for chaining.
@@ -256,6 +287,13 @@ impl<N> Subsequence<N> {
     #[must_use]
     pub fn into_inner(self) -> Vec<N> {
         self.children
+    }
+
+    /// Return the entry for `key` in the outer `<g>` element's attributes.
+    ///
+    /// Attributes set during drawing, including `class`, take precedence over custom values.
+    pub fn attr(&mut self, key: String) -> collections::hash_map::Entry<'_, String, String> {
+        self.attributes.entry(key)
     }
 
     fn routing_width(child: &NodeGeometry) -> i64 {
@@ -433,9 +471,15 @@ impl<N: Node> Node for Subsequence<N> {
     }
 
     fn draw_with_geometry(&self, x: i64, y: i64, h_dir: HDir, geo: &NodeGeometry) -> svg::Element {
-        draw_class_group_with_geometry("subsequence", "Subsequence", x, y, geo, |backend| {
-            self.emit_with_geometry(backend, x, y, h_dir, geo)
-        })
+        draw_group_with_geometry(
+            &self.attributes,
+            "subsequence",
+            "Subsequence",
+            x,
+            y,
+            geo,
+            |backend| self.emit_with_geometry(backend, x, y, h_dir, geo),
+        )
     }
 
     fn render_with_geometry(
@@ -446,9 +490,16 @@ impl<N: Node> Node for Subsequence<N> {
         h_dir: HDir,
         geo: &NodeGeometry,
     ) -> fmt::Result {
-        render_class_group_with_geometry(out, "subsequence", "Subsequence", x, y, geo, |backend| {
-            self.emit_with_geometry(backend, x, y, h_dir, geo)
-        })
+        render_group_with_geometry(
+            out,
+            &self.attributes,
+            "subsequence",
+            "Subsequence",
+            x,
+            y,
+            geo,
+            |backend| self.emit_with_geometry(backend, x, y, h_dir, geo),
+        )
     }
 }
 
@@ -489,8 +540,9 @@ impl<N> Stack<N> {
     }
 
     /// Append a child to this stack.
-    pub fn push(&mut self, child: N) {
+    pub fn push(&mut self, child: N) -> &mut Self {
         self.children.push(child);
+        self
     }
 
     /// Unwrap this stack, returning the children in order.
@@ -839,8 +891,9 @@ impl<N> Choice<N> {
     }
 
     /// Append an alternative child.
-    pub fn push(&mut self, child: N) {
+    pub fn push(&mut self, child: N) -> &mut Self {
         self.children.push(child);
+        self
     }
 
     /// Return the entry for `key` in the outer `<g>` element's attributes.
@@ -1248,8 +1301,9 @@ impl<N> MultiChoice<N> {
     }
 
     /// Append a column of alternatives.
-    pub fn push_column(&mut self, column: Vec<N>) {
+    pub fn push_column(&mut self, column: Vec<N>) -> &mut Self {
         self.columns.push(column);
+        self
     }
 
     /// Return the entry for `key` in the outer `<g>` element's attributes.
