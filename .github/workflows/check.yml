@@ -24,10 +24,11 @@ jobs:
       - run: cargo clippy --features resvg -- -D warnings
 
   css:
-    name: CSS validation
+    name: CSS and Markdown HTML validation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -45,6 +46,10 @@ jobs:
             src/stylesheet_coal.css \
             src/stylesheet_navy.css \
             src/stylesheet_ayu.css
+      - name: Generate Markdown HTML fixtures
+        run: cargo test --no-default-features --test markdown write_html_fixtures -- --ignored
+      - name: Validate Markdown HTML
+        run: java -jar /tmp/vnu.jar --errors-only target/markdown-html
 
   test:
     runs-on: ubuntu-latest

@@ -3,6 +3,26 @@ use std::collections::HashMap;
 use railroad::svg;
 
 #[test]
+fn structured_content_encodes_line_breaks_and_raw_content_is_unchanged() {
+    assert_eq!(
+        svg::encode_minimal("first\r\n\nsecond\rtail"),
+        "first&#10;&#10;second&#10;tail"
+    );
+
+    let raw = "<g>\n\n</g>\n";
+    assert_eq!(
+        svg::Element::new("g").raw_text(raw).to_string(),
+        format!("<g>\n{raw}</g>\n")
+    );
+    let mut out = String::new();
+    let mut renderer = svg::Renderer::new(&mut out);
+    renderer.write_raw(raw).unwrap();
+    renderer.write_display(raw).unwrap();
+    renderer.raw_text_element("g", raw, |_| Ok(())).unwrap();
+    assert_eq!(out, format!("{raw}{raw}<g>\n{raw}</g>\n"));
+}
+
+#[test]
 fn renderer_escapes_content_and_rejects_invalid_tag_names() {
     let mut out = String::new();
     let mut renderer = svg::Renderer::new(&mut out);

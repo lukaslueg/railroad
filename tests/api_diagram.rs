@@ -20,7 +20,7 @@ fn diagram_includes_stylesheets_attributes_and_extra_elements() {
     assert!(svg.contains("class=\"railroad\""));
     assert!(svg.contains("viewBox=\"0 0 "));
     assert!(svg.contains("data-kind=\"demo\""));
-    assert!(svg.contains(DEFAULT_CSS.trim()));
+    assert!(svg.contains(svg::encode_minimal(DEFAULT_CSS).as_ref()));
     assert!(svg.contains(".accent { fill: rebeccapurple; }"));
     assert!(svg.contains("<defs>"));
     assert!(svg.contains("id=\"arrow\""));

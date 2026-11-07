@@ -1713,6 +1713,12 @@ impl Node for Empty {
 /// Formatting the diagram or calling [`Diagram::write`] computes geometry before
 /// rendering and passes it to the node's geometry-aware rendering method.
 ///
+/// The SVG can be embedded as a separate block in CommonMark, with blank lines
+/// before and after it, when the Markdown renderer permits raw SVG and styles.
+/// Structured text and attribute values encode line breaks as character references.
+/// Raw content added by custom nodes or [`svg::Element::raw_text`] remains the
+/// caller's responsibility.
+///
 /// # Example
 /// ```rust
 /// use railroad::*;
@@ -1792,12 +1798,12 @@ impl<N> Diagram<N> {
     }
 
     /// Add the given CSS as an additional `<style>` element.
+    ///
+    /// CSS is XML-escaped as SVG text, including line breaks, so it survives
+    /// embedding in a raw HTML block in Markdown. Pass CSS source, not pre-escaped
+    /// text or `<style>` markup.
     pub fn add_css(&mut self, css: &str) {
-        self.add_element(
-            svg::Element::new("style")
-                .set("type", "text/css")
-                .raw_text(css),
-        );
+        self.add_element(svg::Element::new("style").set("type", "text/css").text(css));
     }
 
     /// Return the entry for `key` in the outer `<svg>` element's attributes.

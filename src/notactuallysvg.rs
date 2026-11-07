@@ -244,7 +244,7 @@ impl<'a> Renderer<'a> {
         self.out.write_str(">\n")
     }
 
-    /// Write text content with minimal XML escaping.
+    /// Write text using [`encode_minimal`] escaping and line-ending normalization.
     pub fn write_text(&mut self, text: &str) -> fmt::Result {
         let mut escaping = EscapingWriter { out: self.out };
         escaping.write_str(text)
@@ -252,12 +252,17 @@ impl<'a> Renderer<'a> {
 
     /// Write raw text without any escaping.
     ///
-    /// Callers should only use this for trusted markup or CSS.
+    /// Callers should only use this for trusted markup or CSS. Content is written
+    /// unchanged; callers are responsible for its validity and for avoiding blank
+    /// lines that would terminate a raw HTML block when embedded in Markdown.
     pub fn write_raw(&mut self, text: &str) -> fmt::Result {
         self.out.write_str(text)
     }
 
     /// Write any [`fmt::Display`] value directly into the output stream.
+    ///
+    /// No escaping or whitespace changes are applied. Callers are responsible
+    /// for the formatted content's validity and Markdown compatibility.
     pub fn write_display(&mut self, display: impl fmt::Display) -> fmt::Result {
         write!(self.out, "{display}")
     }
@@ -314,7 +319,9 @@ impl<'a> Renderer<'a> {
 
     /// Write an element containing unescaped text.
     ///
-    /// This is intended for trusted raw SVG or CSS content.
+    /// This is intended for trusted raw SVG or CSS content. Content is written
+    /// unchanged; callers are responsible for its validity and for avoiding blank
+    /// lines that would terminate a raw HTML block when embedded in Markdown.
     ///
     /// # Example
     /// ```rust
@@ -709,7 +716,9 @@ impl Element {
 
     /// Set the element's text content, written before its children.
     ///
-    /// The text is XML-escaped.
+    /// The text is XML-escaped using [`encode_minimal`], including line-ending
+    /// normalization, so it cannot introduce blank lines that terminate a raw
+    /// HTML block in Markdown.
     ///
     /// ```rust
     /// use railroad::svg;
@@ -731,7 +740,9 @@ impl Element {
 
     /// Set the element's unescaped text content, written before its children.
     ///
-    /// Use this for trusted markup or CSS.
+    /// Use this for trusted markup or CSS. Content is written unchanged; callers
+    /// are responsible for its validity and for avoiding blank lines that would
+    /// terminate a raw HTML block when embedded in Markdown.
     ///
     /// ```rust
     /// use railroad::svg;
@@ -922,23 +933,33 @@ fn minimal_entity(c: char) -> Option<&'static str> {
         '<' => Some("&lt;"),
         '>' => Some("&gt;"),
         '\'' => Some("&#x27;"),
+        '\n' => Some("&#10;"),
+        '\r' => Some("&#10;"),
         _ => None,
     }
 }
 
 fn write_escaped_minimal(f: &mut (impl fmt::Write + ?Sized), inp: &str) -> fmt::Result {
     let mut last_idx = 0;
-    for (idx, c) in inp.char_indices() {
+    let mut chars = inp.char_indices().peekable();
+    while let Some((idx, c)) = chars.next() {
         if let Some(entity) = minimal_entity(c) {
             f.write_str(&inp[last_idx..idx])?;
             f.write_str(entity)?;
             last_idx = idx + 1;
+            if c == '\r' && matches!(chars.peek(), Some((_, '\n'))) {
+                chars.next();
+                last_idx += 1;
+            }
         }
     }
     f.write_str(&inp[last_idx..])
 }
 
-/// Escape `"`, `&`, `<`, `>`, and `'` for text content or quoted attribute values.
+/// Escape `"`, `&`, `<`, `>`, `'`, LF, and CR for text content or quoted attribute values.
+///
+/// CRLF and CR are normalized to LF, as in HTML source. Line breaks use character
+/// references to avoid blank lines that would terminate a raw HTML block in Markdown.
 ///
 /// Returns [`Cow::Borrowed`] when no escaping is required.
 ///
@@ -954,11 +975,16 @@ fn write_escaped_minimal(f: &mut (impl fmt::Write + ?Sized), inp: &str) -> fmt::
 pub fn encode_minimal(inp: &str) -> Cow<'_, str> {
     let mut buf = String::new();
     let mut last_idx = 0;
-    for (idx, c) in inp.char_indices() {
+    let mut chars = inp.char_indices().peekable();
+    while let Some((idx, c)) = chars.next() {
         if let Some(entity) = minimal_entity(c) {
             buf.push_str(&inp[last_idx..idx]);
             buf.push_str(entity);
             last_idx = idx + 1;
+            if c == '\r' && matches!(chars.peek(), Some((_, '\n'))) {
+                chars.next();
+                last_idx += 1;
+            }
         }
     }
     if buf.is_empty() {

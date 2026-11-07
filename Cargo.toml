@@ -21,6 +21,7 @@ resvg = { version = "0.48.1", optional=true, features=["text", "system-fonts", "
 [dev-dependencies]
 railroad_verification = "0.1"
 criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
 
 [[example]]
 name = "render"
