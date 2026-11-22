@@ -2,6 +2,8 @@
 //!
 //! Available when the `resvg` feature is enabled.
 
+use resvg::tiny_skia;
+
 /// Errors encountered while rendering SVG to PNG.
 #[derive(Debug)]
 pub enum Error {
@@ -36,26 +38,28 @@ impl FitTo {
         }
     }
 
-    fn fit_to_size(&self, size: resvg::tiny_skia::IntSize) -> Option<resvg::tiny_skia::IntSize> {
-        match self {
-            Self::MaxWidth(w) => size.scale_to_width(*w),
-            Self::MaxHeight(h) => size.scale_to_height(*h),
-            Self::MaxSize { width, height } => {
-                resvg::tiny_skia::IntSize::from_wh(*width, *height).map(|s| size.scale_to(s))
-            }
-        }
-    }
-
-    fn fit_to_transform(&self, size: resvg::tiny_skia::IntSize) -> resvg::tiny_skia::Transform {
-        let size1 = size.to_size();
-        let size2 = match self.fit_to_size(size) {
-            Some(v) => v.to_size(),
-            None => return resvg::tiny_skia::Transform::default(),
+    fn fit(&self, size: tiny_skia::Size) -> Option<(tiny_skia::IntSize, tiny_skia::Transform)> {
+        let (max_width, max_height) = match *self {
+            Self::MaxWidth(width) => (f64::from(width), f64::INFINITY),
+            Self::MaxHeight(height) => (f64::INFINITY, f64::from(height)),
+            Self::MaxSize { width, height } => (f64::from(width), f64::from(height)),
         };
-        resvg::tiny_skia::Transform::from_scale(
-            size2.width() / size1.width(),
-            size2.height() / size1.height(),
-        )
+        let (svg_width, svg_height) = (f64::from(size.width()), f64::from(size.height()));
+
+        // Keep the limiting dimension exact and round the other up to a whole pixel.
+        let (width, height, scale) = if max_width * svg_height <= max_height * svg_width {
+            let height = (max_width * svg_height / svg_width).ceil().min(max_height);
+            (max_width, height, max_width / svg_width)
+        } else {
+            let width = (max_height * svg_width / svg_height).ceil().min(max_width);
+            (width, max_height, max_height / svg_height)
+        };
+        let scale = scale as f32;
+        if !scale.is_finite() || width > f64::from(u32::MAX) || height > f64::from(u32::MAX) {
+            return None;
+        }
+        let size = tiny_skia::IntSize::from_wh(width as u32, height as u32)?;
+        Some((size, tiny_skia::Transform::from_scale(scale, scale)))
     }
 }
 
@@ -75,6 +79,8 @@ static USVG_OPTS: std::sync::LazyLock<resvg::usvg::Options> = std::sync::LazyLoc
 });
 
 /// Render SVG source to PNG bytes, scaled according to `fit_to`.
+///
+/// The output canvas rounds the scaled dimensions up to whole pixels.
 ///
 /// ```rust
 /// use railroad::*;
@@ -103,16 +109,11 @@ pub fn to_png(svg_src: &str, fit_to: &FitTo) -> Result<Vec<u8>, Error> {
     let svg_tree =
         resvg::usvg::Tree::from_xmltree(&xml_tree, &USVG_OPTS).map_err(Error::SVGParse)?;
 
-    let size = fit_to
-        .fit_to_size(svg_tree.size().to_int_size())
-        .ok_or(Error::InvalidSize)?;
-
+    let (size, transform) = fit_to.fit(svg_tree.size()).ok_or(Error::InvalidSize)?;
     let mut pixmap =
-        resvg::tiny_skia::Pixmap::new(size.width(), size.height()).ok_or(Error::InvalidSize)?;
+        tiny_skia::Pixmap::new(size.width(), size.height()).ok_or(Error::InvalidSize)?;
 
-    let ts = fit_to.fit_to_transform(svg_tree.size().to_int_size());
-
-    resvg::render(&svg_tree, ts, &mut pixmap.as_mut());
+    resvg::render(&svg_tree, transform, &mut pixmap.as_mut());
 
     let png_buf = pixmap
         .encode_png()

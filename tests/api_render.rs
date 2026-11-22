@@ -4,6 +4,7 @@ use railroad::{
     Continuation, ContinuationEnd, ContinuationStart, Diagram, Node, Sequence, Stylesheet,
     Terminal,
     render::{self, FitTo},
+    resvg::tiny_skia::Pixmap,
 };
 
 const PNG_MAGIC: &[u8; 8] = b"\x89PNG\r\n\x1a\n";
@@ -32,6 +33,26 @@ fn render_to_png_produces_png_output() {
     .unwrap();
 
     assert!(png.starts_with(PNG_MAGIC));
+}
+
+#[test]
+fn png_fit_uses_fractional_svg_dimensions() {
+    let svg = r#"<svg xmlns="http://www.w3.org/2000/svg" width="0.5" height="0.75">
+        <rect width="0.5" height="0.75"/>
+    </svg>"#;
+    for fit in [
+        FitTo::MaxWidth(60),
+        FitTo::MaxHeight(90),
+        FitTo::MaxSize {
+            width: 100,
+            height: 90,
+        },
+    ] {
+        let png = render::to_png(svg, &fit).unwrap();
+        let pixmap = Pixmap::decode_png(&png).unwrap();
+        assert_eq!((pixmap.width(), pixmap.height()), (60, 90), "{fit:?}");
+        assert_eq!(pixmap.pixel(59, 89).unwrap().alpha(), 255, "{fit:?}");
+    }
 }
 
 #[test]
