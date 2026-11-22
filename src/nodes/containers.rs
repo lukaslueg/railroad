@@ -660,12 +660,21 @@ impl<N> Stack<N> {
         }
     }
 
-    fn right_padding(&self) -> i64 {
-        if self.children.len() > 1 {
-            Self::PADDING
+    fn width_for_rows(mut row_widths: impl DoubleEndedIterator<Item = i64>) -> i64 {
+        let last_width = row_widths.next_back().unwrap_or(0);
+        let Some(widest_earlier_row) = row_widths.max() else {
+            return last_width;
+        };
+
+        // Leave room for both arrowheads between the vertical rails.
+        // Keep the radius-wide gap when the widest row is among the earlier rows.
+        let arrowhead_clearance = 2 * svg::PathData::PADDING;
+        let clearance = if widest_earlier_row >= last_width {
+            ARC_RADIUS.max(arrowhead_clearance)
         } else {
-            0
-        }
+            arrowhead_clearance
+        };
+        2 * Self::PADDING + last_width.max(widest_earlier_row + clearance)
     }
 }
 
@@ -701,22 +710,7 @@ where
     }
 
     fn width(&self) -> i64 {
-        let left_p = self.left_padding();
-        let max_width = self.children.iter().map(Node::width).max().unwrap_or(0);
-        let last_width = self.children.last().map(Node::width).unwrap_or(0);
-        let base_width = left_p + max_width + self.right_padding();
-        let needs_extra = self
-            .children
-            .iter()
-            .rev()
-            .skip(1)
-            .rev()
-            .any(|c| c.width() >= last_width);
-        if needs_extra {
-            base_width + ARC_RADIUS
-        } else {
-            base_width
-        }
+        Self::width_for_rows(self.children.iter().map(Node::width))
     }
 
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
@@ -794,21 +788,7 @@ where
         let children: Vec<NodeGeometry> =
             self.children.iter().map(|c| c.compute_geometry()).collect();
         let entry_height = children.first().map(|g| g.entry_height).unwrap_or(0);
-        let left_p = self.left_padding();
-        let max_width = children.iter().map(|g| g.width).max().unwrap_or(0);
-        let last_width = children.last().map(|g| g.width).unwrap_or(0);
-        let base_width = left_p + max_width + self.right_padding();
-        let needs_extra = children
-            .iter()
-            .rev()
-            .skip(1)
-            .rev()
-            .any(|g| g.width >= last_width);
-        let width = if needs_extra {
-            base_width + ARC_RADIUS
-        } else {
-            base_width
-        };
+        let width = Self::width_for_rows(children.iter().map(|g| g.width));
         let height = children
             .windows(2)
             .map(|w| {

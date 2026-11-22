@@ -669,6 +669,15 @@ fn main() {
         seq!(dbg!(), dbg!(20, 35, 22)),
         dbg!(10, 15, 10)
     ));
+    f.write_all(b"<p>Stack with row widths 100 and 101 at 2x scale. The downward connector and upward return rail should stay separate on the right.</p>")
+        .unwrap();
+    raw_dia!(Scale::new(
+        Stack::new(vec![
+            Alignment::new(term!("first"), 100, 140, HAlign::Start, VAlign::Top, true),
+            Alignment::new(term!("second"), 101, 22, HAlign::Start, VAlign::Top, true),
+        ]),
+        2.0
+    ));
     hr!();
 
     // Links
