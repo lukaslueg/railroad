@@ -11,6 +11,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [0.3.12] - 2026-10-31
 
 - Harmonize methods available on built-in `Node`-impls
+- `Stack::push`, `Choice::push`, and `MultiChoice::push_column` now return
+  `&mut Self` instead of `()`.
 
 ## [0.3.11] - 2026-10-22
 
