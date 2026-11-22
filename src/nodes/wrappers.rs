@@ -1178,16 +1178,12 @@ where
     T: Node,
     U: Node,
 {
-    fn spacing(&self) -> i64 {
-        if self.label.height() > 0 {
-            Self::SPACING
-        } else {
-            0
-        }
+    fn spacing(label_height: i64) -> i64 {
+        if label_height > 0 { Self::SPACING } else { 0 }
     }
 
-    fn padding(&self) -> i64 {
-        if self.label.height() + self.inner.height() + self.label.width() + self.inner.width() > 0 {
+    fn padding(inner: &NodeGeometry, label: &NodeGeometry) -> i64 {
+        if inner.width > 0 || inner.height > 0 || label.width > 0 || label.height > 0 {
             Self::PADDING
         } else {
             0
@@ -1205,17 +1201,8 @@ where
     ) -> fmt::Result {
         let inner_geo = &geo.children[0];
         let label_geo = &geo.children[1];
-        let padding = if label_geo.height + inner_geo.height + label_geo.width + inner_geo.width > 0
-        {
-            Self::PADDING
-        } else {
-            0
-        };
-        let spacing = if label_geo.height > 0 {
-            Self::SPACING
-        } else {
-            0
-        };
+        let padding = Self::padding(inner_geo, label_geo);
+        let spacing = Self::spacing(label_geo.height);
 
         backend.push_rect(x, y, geo.width, geo.height)?;
         backend.push_path(
@@ -1242,62 +1229,26 @@ where
     U: Node,
 {
     fn entry_height(&self) -> i64 {
-        self.padding() + self.label.height() + self.spacing() + self.inner.entry_height()
+        self.compute_geometry().entry_height
     }
 
     fn height(&self) -> i64 {
-        self.padding() + self.label.height() + self.spacing() + self.inner.height() + self.padding()
+        self.compute_geometry().height
     }
 
     fn width(&self) -> i64 {
-        self.padding() + cmp::max(self.inner.width(), self.label.width()) + self.padding()
+        self.compute_geometry().width
     }
 
     fn draw(&self, x: i64, y: i64, h_dir: HDir) -> svg::Element {
-        svg::Element::new("g")
-            .add(
-                svg::Element::new("rect")
-                    .set("x", &x)
-                    .set("y", &y)
-                    .set("height", &self.height())
-                    .set("width", &self.width()),
-            )
-            .add(
-                svg::PathData::new(h_dir)
-                    .move_to(x, y + self.entry_height())
-                    .horizontal(self.padding())
-                    .move_rel(self.inner.width(), 0)
-                    .horizontal(self.width() - self.inner.width() - self.padding())
-                    .into_path(),
-            )
-            .add(
-                self.label
-                    .draw(x + self.padding(), y + self.padding(), h_dir),
-            )
-            .add(self.inner.draw(
-                x + self.padding(),
-                y + self.padding() + self.label.height() + self.spacing(),
-                h_dir,
-            ))
-            .set_all(&self.attributes)
-            .set("class", "labeledbox")
-            .debug("LabeledBox", x, y, self)
+        self.draw_with_geometry(x, y, h_dir, &self.compute_geometry())
     }
 
     fn compute_geometry(&self) -> NodeGeometry {
         let inner_geo = self.inner.compute_geometry();
         let label_geo = self.label.compute_geometry();
-        let padding = if label_geo.height + inner_geo.height + label_geo.width + inner_geo.width > 0
-        {
-            Self::PADDING
-        } else {
-            0
-        };
-        let spacing = if label_geo.height > 0 {
-            Self::SPACING
-        } else {
-            0
-        };
+        let padding = Self::padding(&inner_geo, &label_geo);
+        let spacing = Self::spacing(label_geo.height);
         let entry_height = padding + label_geo.height + spacing + inner_geo.entry_height;
         let height = padding + label_geo.height + spacing + inner_geo.height + padding;
         let width = padding + cmp::max(inner_geo.width, label_geo.width) + padding;

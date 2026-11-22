@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - Escape line breaks in SVG text, attributes, and CSS to support embedding in CommonMark HTML blocks
 - Keep the vertical connector and return rail separate in `Stack` when the last row is slightly wider than an earlier row
+- Avoid repeated geometry measurements when sizing or drawing nested `LabeledBox` nodes
 
 ## [0.3.12] - 2026-10-31
 
